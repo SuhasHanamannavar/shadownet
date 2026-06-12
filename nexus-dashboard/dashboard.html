@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harvest-X Nexus — Command Center</title>
+  <link rel="stylesheet" href="/static/css/nexus.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* ── 2026 OVERRIDE: ORANGE HIGH-TECH ── */
+    body {
+      margin: 0; padding: 0; overflow: hidden;
+      background: #030100;
+    }
+    
+    #particle-canvas { z-index: 0; }
+
+    .dashboard-grid {
+      position: relative; z-index: 10;
+      display: grid;
+      grid-template-columns: 340px 1fr 360px;
+      grid-template-rows: 1fr;
+      gap: 24px;
+      padding: 32px;
+      height: 100vh;
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+    .panel { pointer-events: auto; }
+
+    .sci-panel {
+      background: rgba(12, 6, 2, 0.75);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 106, 0, 0.2);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    
+    .sci-header {
+      padding: 14px 20px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.15);
+      display: flex; justify-content: space-between;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      background: rgba(255, 106, 0, 0.05);
+    }
+    .sci-header-accent { color: var(--cyan); letter-spacing: 0.1em; }
+    .sci-body {
+      padding: 20px; flex-grow: 1; overflow-y: auto;
+    }
+    
+    .left-col { display: flex; flex-direction: column; gap: 24px; }
+    .center-col { display: flex; flex-direction: column; gap: 24px; position: relative; }
+    .right-col { display: flex; flex-direction: column; gap: 24px; }
+
+    .globe-visor {
+      flex: 1; position: relative;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 106, 0, 0.15);
+      background: radial-gradient(circle at center, rgba(255, 106, 0, 0.08) 0%, transparent 65%);
+      box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      pointer-events: auto;
+    }
+
+    .metric-row {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding: 16px 0; border-bottom: 1px dashed rgba(255, 106, 0, 0.2);
+    }
+    .metric-row:last-child { border: none; }
+    .m-title { font-size: 13px; color: rgba(255,255,255,0.7); letter-spacing: 0.05em; font-weight: 500; }
+    .m-value { font-size: 28px; font-family: var(--font-display); font-weight: 600; color: #fff; line-height: 1; text-shadow: 0 0 10px rgba(255,106,0,0.3); }
+    .m-sub { font-size: 11px; color: rgba(255, 106, 0, 0.6); margin-top: 6px; display:block; font-family: var(--font-mono); }
+    
+    .sci-feed-list { flex-grow: 1; overflow-y: hidden; }
+    .sci-feed-row {
+      display: grid; grid-template-columns: 120px 80px 1fr 70px 40px;
+      padding: 10px 14px; border-bottom: 1px solid rgba(255,106,0,0.06);
+      font-family: var(--font-mono); font-size: 12px; align-items: center;
+      color: rgba(255,255,255,0.9); transition: background 0.2s;
+    }
+    .sci-feed-row:hover { background: rgba(255,106,0,0.1); }
+    .sci-feed-row.new { background: rgba(255,61,0,0.15); border-left: 2px solid var(--red); }
+    .sci-pill { padding: 4px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; font-weight: 700; background: rgba(255,255,255,0.05); text-align: center; }
+    
+    .sci-terminal {
+      font-family: var(--font-mono); font-size: 12px;
+      color: rgba(255, 179, 0, 0.8); line-height: 1.7;
+    }
+    .sci-cmd-prompt { color: var(--cyan); margin-right: 8px; font-weight:bold; }
+
+    .branding { position: absolute; top: 32px; left: 32px; z-index: 20; pointer-events: auto; }
+    .branding-top { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 32px; color: #fff; line-height: 1; margin-bottom: 4px; text-transform:uppercase;}
+    .branding-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; color: var(--cyan); text-transform: uppercase; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 106, 0, 0.4); border-radius: 2px; }
+
+    @keyframes slowScan {
+      0% { top: 0; opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .scanline {
+      position: absolute; left: 0; width: 100%; height: 2px;
+      background: var(--cyan); box-shadow: 0 0 12px var(--cyan);
+      animation: slowScan 4s linear infinite; z-index: 50; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+
+  <div class="branding">
+    <div class="branding-top">Harvest-X</div>
+    <div class="branding-sub">Threat Intelligence Center</div>
+  </div>
+
+  <div class="dashboard-grid">
+    
+    <!-- LEFT COLUMN -->
+    <div class="left-col panel">
+      <div style="height: 60px;"></div> <!-- Spacer -->
+      
+      <div class="sci-panel" style="flex: 0 0 auto;">
+        <div class="sci-header">
+          <span>Global Metrics</span>
+          <span class="sci-header-accent" id="current-os">Linux Core</span>
+        </div>
+        <div class="sci-body">
+          <div class="metric-row">
+            <div>
+              <div class="m-title">Active Threats</div>
+              <span class="m-sub">Real-time sessions</span>
+            </div>
+            <div class="m-value" style="color:var(--red);" id="m-active">0</div>
+          </div>
+          <div class="metric-row">
+            <div>
+              <div class="m-title">Unique Origin IPs</div>
+              <span class="m-sub">Tracking globally</span>
+            </div>
+            <div class="m-value" style="color:var(--cyan);" id="m-ips">0</div>
+          </div>
+          <div class="metric-row">
+            <div>
+              <div class="m-title">Total Commands</div>
+              <span class="m-sub">Shell execution logged</span>
+            </div>
+            <div class="m-value" style="color:#ffffff;" id="m-cmds">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sci-panel" style="flex: 1;">
+        <div class="sci-header">
+          <span>Attacker Classification</span>
+          <span class="sci-header-accent">Neural Net Evaluated</span>
+        </div>
+        <div class="sci-body" style="display:flex; flex-direction:column; gap: 20px;">
+          <div>
+             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
+               <span>APT (Advanced)</span><span id="cnt-apt" style="color:#fff;">0</span>
+             </div>
+             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+               <div id="bar-apt" style="height:100%; width:0%; background:var(--red); transition: width 0.5s; box-shadow:0 0 10px var(--red);"></div>
+             </div>
+          </div>
+          <div>
+             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
+               <span>Automated Bots</span><span id="cnt-bot" style="color:#fff;">0</span>
+             </div>
+             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+               <div id="bar-bot" style="height:100%; width:0%; background:var(--blue); transition: width 0.5s;"></div>
+             </div>
+          </div>
+          <div>
+             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
+               <span>Human Exploratory</span><span id="cnt-human" style="color:#fff;">0</span>
+             </div>
+             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+               <div id="bar-human" style="height:100%; width:0%; background:var(--green); transition: width 0.5s;"></div>
+             </div>
+          </div>
+          <div>
+             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
+               <span>Mass Scanners</span><span id="cnt-scan" style="color:#fff;">0</span>
+             </div>
+             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+               <div id="bar-scan" style="height:100%; width:0%; background:rgba(255,255,255,0.3); transition: width 0.5s;"></div>
+             </div>
+          </div>
+          
+          <div style="margin-top:auto; padding-top:20px; border-top:1px dashed rgba(255,106,0,0.2);">
+             <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom: 8px; letter-spacing:0.1em; font-weight:bold;">AI Confidence Score</div>
+             <div style="font-size:42px; font-weight:700; color:var(--amber); line-height:1; font-family:var(--font-display); text-shadow:0 0 15px rgba(255,179,0,0.3);" id="m-ai-conf">98%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="center-col panel">
+       <div class="globe-visor">
+          <div class="scanline"></div>
+          <div class="sci-header" style="position:absolute; top:0; left:0; right:0; z-index:5; background:rgba(12,6,2,0.8); border-bottom:1px solid rgba(255,106,0,0.3);">
+            <span>Global Telemetry Vector Simulation</span>
+            <span class="sci-header-accent" id="globes-count">0 active nodes</span>
+          </div>
+          
+          <div id="globe" style="width:100%;height:100%;"></div>
+       </div>
+
+       <div class="sci-panel" style="height: 280px;">
+          <div class="sci-header">
+            <span>Live Intercept Feed</span>
+            <span class="sci-header-accent" id="feed-count">0 events</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 120px 80px 1fr 70px 40px; padding: 10px 14px; font-size:10px; text-transform:uppercase; color:rgba(255,255,255,0.5); border-bottom:1px solid rgba(255,106,0,0.3); background:rgba(255,106,0,0.05); font-weight:bold; letter-spacing:0.05em;">
+            <span>Source IP</span><span>Sys Time</span><span>Payload / Command</span><span>Class</span><span>Risk</span>
+          </div>
+          <div class="sci-body sci-feed-list" id="feed-list" style="padding:0; overflow-y:auto;">
+            <div style="text-align:center; padding: 50px; color:rgba(255,106,0,0.5); font-size:12px; font-family:var(--font-mono);">Awaiting intrusion vectors...</div>
+          </div>
+       </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col panel" style="padding-top: 60px;">
+       <div style="display:flex; justify-content:flex-end; align-items:center; gap:16px;">
+         <div style="font-family:var(--font-mono); font-size:12px; color:rgba(255,255,255,0.6);" id="sys-time">00:00:00 UTC</div>
+         <button style="background:var(--red-dim); border:1px solid var(--red); color:var(--red); padding:8px 16px; border-radius:4px; font-family:var(--font-display); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; cursor:pointer;" id="demo-btn" onclick="triggerDemo()">
+           ⚠ Simulate Attack
+         </button>
+       </div>
+
+       <div class="sci-panel" style="flex: 0 0 auto;">
+          <div class="sci-header">
+            <span>Blockchain Integrity</span>
+            <span style="color:var(--green);">● Verified</span>
+          </div>
+          <div class="sci-body" style="display:flex; flex-direction:column; gap:8px;">
+             <div class="metric-row" style="padding:8px 0;">
+                <span class="m-title">Network Status</span>
+                <span style="font-family:var(--font-mono); font-size:12px; color:var(--green);">Synced</span>
+             </div>
+             <div class="metric-row" style="padding:8px 0;">
+                <span class="m-title">Blocks Intercepted</span>
+                <span style="font-family:var(--font-mono); font-size:13px; color:#fff;" id="chain-blocks">0</span>
+             </div>
+             <div class="metric-row" style="padding:8px 0; border:none; display:block;">
+                <span class="m-title" style="margin-bottom:8px; display:block;">Latest Block Hash</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--cyan); word-break:break-all; line-height:1.4;" id="chain-last-hash">—</span>
+             </div>
+          </div>
+       </div>
+
+       <div class="sci-panel" style="flex: 1;">
+          <div class="sci-header">
+            <span>Terminal Intercept</span>
+            <span class="sci-header-accent" id="term-session">Standby</span>
+          </div>
+          <div class="sci-body sci-terminal" id="terminal" style="background:rgba(5,2,1,0.6); box-shadow:inset 0 0 30px rgba(0,0,0,1);">
+             <div id="term-lines">
+               <div>System listening on all ports...</div>
+             </div>
+          </div>
+       </div>
+    </div>
+
+  </div>
+
+  <script src="/static/js/nexus.js"></script>
+  <script src="/static/js/globe.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      Nexus.initParticles('particle-canvas');
+      Nexus.initCursor();
+      Nexus.initFloatingHexes('body', 6);
+      
+      // Globe
+      setTimeout(() => {
+        const g = new window.AtlasGlobe('globe');
+      }, 300);
+    });
+
+    const tagMap  = { 'APT': 'tag-apt', 'Bot': 'tag-bot', 'Human': 'tag-human', 'Scanner': 'tag-scanner' };
+    let displayedSessionIds = new Set();
+    let startTime = Date.now();
+
+    function updateClock() {
+      const n = new Date();
+      const t = [n.getUTCHours(), n.getUTCMinutes(), n.getUTCSeconds()].map(x => String(x).padStart(2,'0')).join(':');
+      const el = document.getElementById('sys-time');
+      if(el) el.textContent = \`SYS \${t} UTC\`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function triggerDemo() {
+      const btn = document.getElementById('demo-btn');
+      btn.disabled = true;
+      btn.innerHTML = '⟳ Simulating...';
+      Nexus.triggerGlitch(600, 1.2);
+      Nexus.showToast('ATTACK SIMULATION — Threat signatures detected', 'error');
+
+      for (let i = 0; i < 3; i++) {
+        const demo = Nexus.generateDemoSession();
+        addFeedRow(demo, true);
+      }
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = \`⚠ Simulate Attack\`;
+      }, 3000);
+    }
+
+    function addFeedRow(d, isDemo = false) {
+      const feedList = document.getElementById('feed-list');
+      const type = d.classification || 'Scanner';
+      const highlight = type === 'APT' ? 'new' : '';
+      const risk = d.risk_score || 0;
+      const time = d.timestamp ? (d.timestamp.split('T')[1] || '').substring(0,8) : Nexus.nowUTC();
+      const cmd = d.command || '—';
+
+      const empty = feedList.querySelector('[style*="text-align:center"]');
+      if (empty) empty.remove();
+
+      const row = document.createElement('div');
+      row.className = \`sci-feed-row \${highlight}\`;
+      row.innerHTML = \`
+        <span style="color:var(--cyan);font-weight:600;">\${d.src_ip || 'Unknown'}</span>
+        <span style="color:rgba(255,255,255,0.5);">\${time}</span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#ffffff;">\${cmd}</span>
+        <span class="sci-pill" style="color:\${type==='APT'?'var(--red)':type==='Bot'?'var(--blue)':'rgba(255,255,255,0.5)'}; border:1px solid \${type==='APT'?'var(--red)':type==='Bot'?'var(--blue)':'rgba(255,255,255,0.2)'};">\${type}</span>
+        <span style="text-align:right;font-weight:700;color:\${risk > 70 ? 'var(--red)' : risk > 40 ? 'var(--amber)' : 'var(--green)'};">\${risk}</span>
+      \`;
+      
+      feedList.insertBefore(row, feedList.firstChild);
+      while (feedList.children.length > 100) feedList.removeChild(feedList.lastChild);
+
+      const termLines = document.getElementById('term-lines');
+      const emptyTerm = termLines.querySelector('.term-empty');
+      if (emptyTerm) emptyTerm.remove();
+
+      const termLine = document.createElement('div');
+      termLine.innerHTML = \`<span class="sci-cmd-prompt">root@hpot:~#</span><span style="color:#ffffff;">\${cmd}</span>\`;
+      termLines.appendChild(termLine);
+      while (termLines.children.length > 40) termLines.removeChild(termLines.firstChild);
+      document.getElementById('term-session').textContent = \`Session: \${d.src_ip || 'Unknown'}\`;
+      document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
+    }
+
+    function updateMetrics(sessions) {
+      let totalActive = 0, ips = new Set(), totalCmds = 0;
+      let stats = { 'APT': 0, 'Bot': 0, 'Human': 0, 'Scanner': 0 };
+
+      Object.values(sessions).forEach(s => {
+        totalActive++;
+        if (s.src_ip && s.src_ip !== 'Unknown') ips.add(s.src_ip);
+        totalCmds += (s.commands || []).length;
+        let type = 'Scanner';
+        if (s.classification === 'ADVANCED_THREAT') type = 'APT';
+        else if (s.classification === 'AUTOMATED_BOT') type = 'Bot';
+        else if (s.classification === 'EXPLORATORY') type = 'Human';
+        stats[type]++;
+      });
+
+      try {
+        document.getElementById('m-active').textContent = totalActive;
+        document.getElementById('m-ips').textContent = ips.size;
+        document.getElementById('m-cmds').textContent = totalCmds;
+        document.getElementById('feed-count').textContent = totalActive + ' events';
+
+        const total = totalActive || 1;
+        const pct = v => Math.round(v / total * 100);
+        document.getElementById('bar-apt').style.width = pct(stats.APT) + '%';
+        document.getElementById('bar-bot').style.width = pct(stats.Bot) + '%';
+        document.getElementById('bar-human').style.width = pct(stats.Human) + '%';
+        document.getElementById('bar-scan').style.width = pct(stats.Scanner) + '%';
+        document.getElementById('cnt-apt').textContent = stats.APT;
+        document.getElementById('cnt-bot').textContent = stats.Bot;
+        document.getElementById('cnt-human').textContent = stats.Human;
+        document.getElementById('cnt-scan').textContent = stats.Scanner;
+        document.getElementById('globes-count').textContent = ips.size + ' active nodes';
+      } catch(e){}
+    }
+
+    async function pollBackend() {
+      try {
+        const base = 'https://shadownet-3dp1.onrender.com';
+
+        const osRes = await fetch(\`\${base}/api/system/os\`).catch(() => null);
+        if (osRes && osRes.ok) {
+          const osData = await osRes.json();
+          const osEl = document.getElementById('current-os');
+          if (osEl) osEl.innerText = osData.current_os || 'Linux';
+        }
+
+        const res = await fetch(\`\${base}/api/sessions\`).catch(() => null);
+        if (!res || !res.ok) return;
+
+        const sessions = await res.json();
+        if (!sessions || Object.keys(sessions).length === 0) return;
+
+        const sids = Object.keys(sessions).reverse();
+        sids.forEach(sid => {
+          const s = sessions[sid];
+          if (!displayedSessionIds.has(sid) && s.commands && s.commands.length > 0) {
+            displayedSessionIds.add(sid);
+            let type = 'Scanner';
+            if (s.classification === 'ADVANCED_THREAT') type = 'APT';
+            else if (s.classification === 'AUTOMATED_BOT') type = 'Bot';
+            else if (s.classification === 'EXPLORATORY') type = 'Human';
+
+            s.commands.forEach(cmd => {
+              addFeedRow({
+                src_ip: s.src_ip || 'Unknown',
+                classification: type,
+                risk_score: s.risk_score || 0,
+                command: typeof cmd === 'string' ? cmd : cmd.command || cmd,
+                timestamp: s.start_time || new Date().toISOString(),
+              });
+            });
+          }
+        });
+        updateMetrics(sessions);
+      } catch (e) {}
+    }
+
+    setInterval(pollBackend, 2500);
+    pollBackend();
+  </script>
+</body>
+</html>

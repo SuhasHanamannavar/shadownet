@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harvest-X — Session Detail</title>
+  <link rel="stylesheet" href="/static/css/nexus.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .session-detail { position:relative; z-index:2; padding:var(--space-20) var(--space-32); }
+    .detail-grid { display:grid; grid-template-columns:1fr 320px; gap:var(--space-12); }
+    .detail-left { display:flex; flex-direction:column; gap:var(--space-12); }
+    .detail-right { display:flex; flex-direction:column; gap:var(--space-12); }
+
+    .cmd-timeline { max-height:500px; overflow-y:auto; }
+    .cmd-timeline::-webkit-scrollbar { width:3px; }
+    .cmd-timeline::-webkit-scrollbar-thumb { background:var(--cyan-dim); border-radius:2px; }
+
+    .cmd-item {
+      padding:var(--space-10) var(--space-14);
+      border-left:2px solid var(--glass-border);
+      margin-left:var(--space-8);
+      margin-bottom:var(--space-4);
+      transition: all var(--dur-hover) var(--ease-out-expo);
+      position:relative;
+    }
+    .cmd-item::before {
+      content:''; position:absolute;
+      left:-5px; top:14px;
+      width:8px; height:8px; border-radius:50%;
+      background:var(--cyan);
+      border:2px solid var(--bg-deep);
+    }
+    .cmd-item.high-risk::before { background:var(--red); }
+    .cmd-item.med-risk::before { background:var(--amber); }
+    .cmd-item:hover { border-left-color:var(--cyan); background:rgba(0,240,255,0.02); }
+    .cmd-item.high-risk:hover {
+      border-left-color: var(--red);
+      background: rgba(255,23,68,0.04);
+      transform: skewX(-1deg);
+      transition: all 80ms linear;
+    }
+    .cmd-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-4); }
+    .cmd-text { font-family:var(--font-mono); font-size:var(--text-small); color:var(--green); }
+    .cmd-ts { font-size:var(--text-micro); color:var(--text-muted); font-family:var(--font-mono); }
+    .cmd-response { font-size:var(--text-micro); color:var(--text-secondary); padding-left:var(--space-14); margin-top:var(--space-4); font-family:var(--font-mono); white-space:pre-wrap; }
+    .cmd-comment { font-size:var(--text-micro); color:var(--purple); padding-left:var(--space-14); margin-top:var(--space-4); font-style:italic; }
+    .cmd-risk { font-size:var(--text-tiny); font-family:var(--font-mono); padding:var(--space-2) var(--space-8); border-radius:10px; }
+    .cmd-risk.hi { background:var(--red-dim); color:var(--red); }
+    .cmd-risk.med { background:var(--amber-dim); color:var(--amber); }
+    .cmd-risk.lo { background:var(--green-dim); color:var(--green); }
+
+    .info-row { display:flex; justify-content:space-between; padding:var(--space-8) 0; border-bottom:1px solid var(--glass-border); font-size:var(--text-small); }
+    .info-row:last-child { border-bottom:none; }
+    .info-label { color:var(--text-muted); font-weight:var(--weight-500); }
+    .info-value { font-family:var(--font-mono); color:var(--text-primary); font-weight:var(--weight-500); }
+    .info-value.cyan { color:var(--cyan); }
+    .info-value.green { color:var(--green); }
+    .info-value.red { color:var(--red); }
+
+    .hash-display { font-family:var(--font-mono); font-size:var(--text-micro); color:var(--text-dim); word-break:break-all; background:rgba(0,0,0,0.3); padding:var(--space-8) var(--space-10); border-radius:6px; border:1px solid var(--glass-border); }
+  </style>
+</head>
+<body>
+  <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+
+  <!-- HEADER -->
+  <header class="nexus-header" style="position:relative;z-index:2;">
+    <div class="header-left">
+      <div class="header-logo">
+        <div class="logo-icon">HX</div>
+        <div>
+          Harvest-X <span style="font-weight:400;color:var(--text-muted);font-size:14px;">Session</span>
+          <span class="logo-version">DETAIL</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/dashboard'">Dashboard</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='/monitor'">Monitor</button>
+    </div>
+  </header>
+
+  <!-- SESSION DETAIL -->
+  <div class="session-detail" id="app">
+    <button class="btn btn-ghost btn-sm" onclick="window.location.href='/dashboard'" style="margin-bottom:var(--space-16);">Back to Dashboard</button>
+
+      <div class="page-title-bar" style="padding:0 0 16px;">
+        <div>
+          <div class="page-title glitch-hover" style="opacity:0;transform:translateY(10px);" id="title-bar">Session <span style="color:var(--cyan);" id="session-title">—</span></div>
+          <div class="page-subtitle" id="session-meta">Loading session data...</div>
+        </div>
+        <button class="btn btn-primary btn-glow" onclick="exportSession()">↓ Export JSON</button>
+      </div>
+
+    <div class="detail-grid">
+      <!-- LEFT -->
+      <div class="detail-left">
+        <!-- Command Timeline -->
+        <div class="glass" style="position:relative;">
+          <div class="cyber-corner tl"></div>
+          <div class="cyber-corner tr"></div>
+          <div class="cyber-corner bl"></div>
+          <div class="cyber-corner br"></div>
+          <div class="data-stream"></div>
+          <div class="card-header">
+            <span class="card-title">Command Timeline</span>
+            <span class="card-badge" id="cmd-count">0 commands</span>
+          </div>
+          <div class="cmd-timeline" id="cmd-timeline">
+            <div style="text-align:center;padding:40px 0;color:var(--text-dim);font-size:11px;font-family:var(--font-mono);">
+              Select a session from the dashboard to view details
+            </div>
+          </div>
+        </div>
+
+        <!-- Risk Chart -->
+        <div class="glass" style="position:relative;">
+          <div class="cyber-corner tl"></div>
+          <div class="cyber-corner tr"></div>
+          <div class="card-header">
+            <span class="card-title">Risk Score Evolution</span>
+            <span class="card-badge">Trend</span>
+          </div>
+          <div style="padding:14px 18px;height:160px;">
+            <canvas id="risk-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="detail-right">
+        <!-- Session Info -->
+        <div class="glass">
+          <div class="card-header">
+            <span class="card-title">Session Information</span>
+            <span class="card-badge success">● Live</span>
+          </div>
+          <div class="card-body">
+            <div class="info-row">
+              <span class="info-label">Session ID</span>
+              <span class="info-value cyan" id="d-sid">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Source IP</span>
+              <span class="info-value" id="d-ip">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Classification</span>
+              <span class="info-value" id="d-class">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Risk Score</span>
+              <span class="info-value" id="d-risk">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Start Time</span>
+              <span class="info-value" id="d-start">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total Commands</span>
+              <span class="info-value" id="d-cmds">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blockchain Audit -->
+        <div class="glass">
+          <div class="card-header">
+            <span class="card-title">Blockchain Audit Entry</span>
+            <span class="card-badge success">Verified</span>
+          </div>
+          <div class="card-body">
+            <div class="hash-display" id="chain-hash">No blockchain data available for this session</div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);">
+              <span>SHA-256 Integrity</span>
+              <span id="chain-status" style="color:var(--green);">● Protected</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/nexus.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Nexus) {
+        Nexus.initParticles('particle-canvas');
+        Nexus.initCursor();
+        Nexus.initFloatingHexes('body', 4);
+      }
+      loadSession();
+
+      // Animate title bar entrance
+      setTimeout(() => {
+        const titleBar = document.getElementById('title-bar');
+        if (!titleBar) return;
+        titleBar.style.transition = 'all 500ms cubic-bezier(0.19, 1, 0.22, 1)';
+        titleBar.style.opacity = '1';
+        titleBar.style.transform = 'translateY(0)';
+      }, 200);
+    });
+
+    let currentSession = null;
+    let riskChart = null;
+
+    function getSessionId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+
+    async function loadSession() {
+      const sid = getSessionId();
+      if (!sid) {
+        document.getElementById('session-title').textContent = 'No session selected';
+        document.getElementById('session-meta').textContent = 'Pass ?id=SESSION_ID in the URL';
+        return;
+      }
+
+      document.getElementById('session-title').textContent = sid.substring(0, 16) + '...';
+
+      try {
+        const res = await fetch('https://shadownet-3dp1.onrender.com/api/sessions');
+        const data = await res.json();
+        const s = data && data[sid];
+        if (!s) {
+          document.getElementById('session-meta').textContent = 'Session not found — it may have expired';
+          return;
+        }
+
+        currentSession = s;
+        renderSession(s);
+      } catch (e) {
+        document.getElementById('session-meta').textContent = 'Error loading session: ' + e.message;
+      }
+    }
+
+    function renderSession(s) {
+      document.getElementById('session-meta').textContent =
+        `${s.src_ip || 'Unknown IP'} · ${s.classification || 'Unknown'} · ${(s.commands || []).length} commands`;
+
+      // Info
+      document.getElementById('d-sid').textContent = (s.session_id || '').substring(0, 20) || '—';
+      document.getElementById('d-ip').textContent = s.src_ip || '—';
+      const cls = s.classification || 'Unknown';
+      const clsMap = { 'ADVANCED_THREAT': 'APT', 'AUTOMATED_BOT': 'Bot', 'EXPLORATORY': 'Human', 'SCANNER': 'Scanner' };
+      const displayCls = clsMap[cls] || cls;
+      document.getElementById('d-class').textContent = displayCls;
+      document.getElementById('d-class').className = 'info-value ' + (
+        displayCls === 'APT' ? 'red' : displayCls === 'Human' ? 'green' : 'cyan'
+      );
+      document.getElementById('d-risk').textContent = s.risk_score || '—';
+      document.getElementById('d-risk').style.color = s.risk_score > 70 ? 'var(--red)' : s.risk_score > 40 ? 'var(--amber)' : 'var(--green)';
+      document.getElementById('d-start').textContent = s.start_time ? s.start_time.replace('T', ' ').substring(0, 19) : '—';
+      document.getElementById('d-cmds').textContent = (s.commands || []).length;
+      document.getElementById('cmd-count').textContent = (s.commands || []).length + ' commands';
+
+      // Command timeline
+      const timeline = document.getElementById('cmd-timeline');
+      timeline.innerHTML = '';
+      (s.commands || []).forEach((cmd, i) => {
+        const cmdText = typeof cmd === 'string' ? cmd : cmd.command || cmd.cmd || '';
+        const cmdTs = cmd.timestamp ? (cmd.timestamp.replace('T', ' ').substring(0, 19)) : `#${i + 1}`;
+        const risk = cmd.risk_score || 0;
+        const rClass = risk > 70 ? 'hi' : risk > 40 ? 'med' : 'lo';
+        const highlight = risk > 70 ? 'high-risk' : risk > 40 ? 'med-risk' : '';
+        const response = (cmd.response || '').substring(0, 300);
+        const comment = cmd.ai_comment || cmd.comment || '';
+
+        const div = document.createElement('div');
+        div.className = `cmd-item ${highlight}`;
+        div.innerHTML = `
+          <div class="cmd-header">
+            <span class="cmd-text">${cmdText.replace(/</g, '&lt;')}</span>
+            <span class="cmd-risk ${rClass}">RISK ${risk}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span class="cmd-ts">${cmdTs}</span>
+          </div>
+          ${response ? `<div class="cmd-response">${response.replace(/</g, '&lt;')}</div>` : ''}
+          ${comment ? `<div class="cmd-comment">// ${comment.replace(/</g, '&lt;')}</div>` : ''}
+        `;
+        timeline.appendChild(div);
+      });
+
+      // Blockchain hash
+      const hash = s.blockchain_hash || s.hash || '';
+      if (hash) {
+        document.getElementById('chain-hash').textContent = hash;
+      } else {
+        document.getElementById('chain-hash').textContent = 'Pending blockchain anchoring...';
+        document.getElementById('chain-status').textContent = '● Pending';
+      }
+
+      // Risk chart
+      renderRiskChart(s.commands || []);
+    }
+
+    function renderRiskChart(commands) {
+      const ctx = document.getElementById('risk-chart');
+      if (!ctx) return;
+      if (riskChart) riskChart.destroy();
+
+      const labels = commands.map((_, i) => `#${i + 1}`);
+      const data = commands.map(cmd => cmd.risk_score || 0);
+
+      riskChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Risk Score',
+            data,
+            borderColor: '#00f0ff',
+            backgroundColor: 'rgba(0, 240, 255, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointBackgroundColor: data.map(v =>
+              v > 70 ? '#ff1744' : v > 40 ? '#ffab00' : '#00ff88'
+            ),
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              display: true,
+              ticks: { color: '#475569', font: { size: 9 } },
+              grid: { color: 'rgba(255,255,255,0.03)' },
+            },
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { color: '#475569', font: { size: 9 } },
+              grid: { color: 'rgba(255,255,255,0.03)' },
+            }
+          }
+        }
+      });
+    }
+
+    function exportSession() {
+      if (!currentSession) return;
+      const blob = new Blob([JSON.stringify(currentSession, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session_${(currentSession.session_id || 'unknown').substring(0, 8)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      Nexus.showToast('Session exported');
+    }
+
+    console.log('%cHarvest-X Session Detail', 'font-size:18px;font-weight:bold;color:#00f0ff;');
+  </script>
+</body>
+</html>
