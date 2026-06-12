@@ -3,134 +3,418 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Harvest-X Nexus — Command Center</title>
-  <link rel="stylesheet" href="/static/css/nexus.css" />
+  <title>Harvest-X Nexus — Threat Command</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
-    /* ── 2026 OVERRIDE: ORANGE HIGH-TECH ── */
+    :root {
+      --bg-deep: #030100;
+      --bg-panel: rgba(8, 4, 2, 0.85);
+      --border-glow: rgba(255, 106, 0, 0.25);
+      --accent-prime: #ff6a00;
+      --accent-cyan: #00f0ff;
+      --accent-red: #ff1744;
+      --accent-green: #00ff88;
+      --accent-amber: #ffab00;
+      --font-display: 'Orbitron', 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-base: 'Inter', sans-serif;
+      --ease-power: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       margin: 0; padding: 0; overflow: hidden;
-      background: #030100;
+      background: var(--bg-deep);
+      font-family: var(--font-base);
+      color: #fff;
+      height: 100vh;
+      width: 100vw;
     }
-    
-    #particle-canvas { z-index: 0; }
 
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 106, 0, 0.4); border-radius: 2px; }
+
+    #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+    /* ── CRT SCAN OVERLAY ── */
+    .crt-overlay {
+      position: fixed; inset: 0; z-index: 1;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px,
+        rgba(0, 0, 0, 0.03) 4px
+      );
+    }
+
+    .scanline {
+      position: fixed; left: 0; width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+      box-shadow: 0 0 20px var(--accent-cyan), 0 0 60px var(--accent-cyan);
+      animation: scanMove 3s linear infinite;
+      z-index: 2; pointer-events: none; opacity: 0.3;
+    }
+
+    @keyframes scanMove {
+      0% { top: -2px; opacity: 0; }
+      5% { opacity: 0.4; }
+      95% { opacity: 0.4; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    /* ── BRANDING ── */
+    .branding {
+      position: fixed; top: 24px; left: 32px; z-index: 50; pointer-events: auto;
+      opacity: 0; transform: translateY(-12px);
+      animation: fadeSlideIn 0.6s var(--ease-power) 0.1s forwards;
+    }
+    .branding-row { display: flex; align-items: center; gap: 12px; }
+    .branding-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent-prime), var(--accent-cyan));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 900; font-size: 18px;
+      color: var(--bg-deep);
+      box-shadow: 0 0 24px rgba(255, 106, 0, 0.3);
+    }
+    .branding-text {
+      font-family: var(--font-display); font-weight: 700; font-size: 20px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, var(--accent-prime));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .branding-sub {
+      font-family: var(--font-mono); font-size: 10px;
+      letter-spacing: 0.2em; color: rgba(255,255,255,0.4);
+      text-transform: uppercase; margin-top: 2px;
+    }
+
+    @keyframes fadeSlideIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── GLITCH TEXT ── */
+    .glitch {
+      position: relative;
+    }
+    .glitch::before,
+    .glitch::after {
+      content: attr(data-text);
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .glitch::before {
+      color: var(--accent-cyan);
+      z-index: -1;
+      animation: glitchShift 3s infinite linear alternate-reverse;
+      clip-path: inset(20% 0 60% 0);
+    }
+    .glitch::after {
+      color: var(--accent-red);
+      z-index: -1;
+      animation: glitchShift 2s infinite linear alternate;
+      clip-path: inset(60% 0 10% 0);
+    }
+    @keyframes glitchShift {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 1px); }
+      40% { transform: translate(2px, -1px); }
+      60% { transform: translate(-1px, 2px); }
+      80% { transform: translate(1px, -2px); }
+      100% { transform: translate(0); }
+    }
+
+    /* ── DASHBOARD GRID ── */
     .dashboard-grid {
       position: relative; z-index: 10;
       display: grid;
-      grid-template-columns: 340px 1fr 360px;
+      grid-template-columns: 300px 1fr 320px;
       grid-template-rows: 1fr;
-      gap: 24px;
-      padding: 32px;
+      gap: 20px;
+      padding: 24px 28px 20px 28px;
       height: 100vh;
       box-sizing: border-box;
       pointer-events: none;
     }
     .panel { pointer-events: auto; }
 
+    /* ── SCI-FI PANEL ── */
     .sci-panel {
-      background: rgba(12, 6, 2, 0.75);
-      backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 106, 0, 0.2);
-      border-radius: 6px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(32px);
+      border: 1px solid var(--border-glow);
+      border-radius: 8px;
       position: relative;
       overflow: hidden;
       display: flex; flex-direction: column;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,106,0,0.06);
+      opacity: 0; transform: translateY(16px);
+      transition: border-color 0.3s var(--ease-power), box-shadow 0.3s var(--ease-power);
     }
-    
-    .sci-header {
-      padding: 14px 20px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
-      border-bottom: 1px solid rgba(255, 106, 0, 0.15);
-      display: flex; justify-content: space-between;
-      color: rgba(255, 255, 255, 0.5);
-      font-weight: 600;
-      background: rgba(255, 106, 0, 0.05);
+    .sci-panel:hover {
+      border-color: rgba(255, 106, 0, 0.4);
+      box-shadow: 0 8px 48px rgba(0,0,0,0.7), 0 0 24px rgba(255,106,0,0.08);
     }
-    .sci-header-accent { color: var(--cyan); letter-spacing: 0.1em; }
-    .sci-body {
-      padding: 20px; flex-grow: 1; overflow-y: auto;
-    }
-    
-    .left-col { display: flex; flex-direction: column; gap: 24px; }
-    .center-col { display: flex; flex-direction: column; gap: 24px; position: relative; }
-    .right-col { display: flex; flex-direction: column; gap: 24px; }
+    .sci-panel.visible { opacity: 1; transform: translateY(0); }
 
+    .sci-header {
+      padding: 12px 16px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.25em;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.1);
+      display: flex; justify-content: space-between; align-items: center;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 600;
+      background: rgba(255, 106, 0, 0.04);
+      font-family: var(--font-display);
+    }
+    .sci-header-accent { color: var(--accent-cyan); letter-spacing: 0.15em; font-family: var(--font-mono); font-size: 9px; font-weight: 500; }
+
+    .sci-body {
+      padding: 16px;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    /* ── CORNER DECORATIONS ── */
+    .corner {
+      position: absolute; width: 12px; height: 12px;
+      border-color: var(--accent-prime);
+      opacity: 0.3;
+    }
+    .corner-tl { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
+    .corner-tr { top: -1px; right: -1px; border-top: 1px solid; border-right: 1px solid; }
+    .corner-bl { bottom: -1px; left: -1px; border-bottom: 1px solid; border-left: 1px solid; }
+    .corner-br { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
+
+    /* ── GLOBE ── */
     .globe-visor {
       flex: 1; position: relative;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 106, 0, 0.15);
-      background: radial-gradient(circle at center, rgba(255, 106, 0, 0.08) 0%, transparent 65%);
-      box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
+      border-radius: 7px;
+      border: 1px solid rgba(255, 106, 0, 0.12);
+      background: radial-gradient(circle at center, rgba(255, 106, 0, 0.06) 0%, transparent 65%);
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.9);
       overflow: hidden;
       display: flex; flex-direction: column;
       pointer-events: auto;
     }
+    #globe { width: 100%; height: 100%; }
 
+    /* ── METRICS ── */
     .metric-row {
       display: flex; justify-content: space-between; align-items: flex-end;
-      padding: 16px 0; border-bottom: 1px dashed rgba(255, 106, 0, 0.2);
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.08);
+      opacity: 0; transform: translateX(-8px);
+      transition: all 0.3s var(--ease-power);
     }
+    .metric-row.visible { opacity: 1; transform: translateX(0); }
     .metric-row:last-child { border: none; }
-    .m-title { font-size: 13px; color: rgba(255,255,255,0.7); letter-spacing: 0.05em; font-weight: 500; }
-    .m-value { font-size: 28px; font-family: var(--font-display); font-weight: 600; color: #fff; line-height: 1; text-shadow: 0 0 10px rgba(255,106,0,0.3); }
-    .m-sub { font-size: 11px; color: rgba(255, 106, 0, 0.6); margin-top: 6px; display:block; font-family: var(--font-mono); }
-    
-    .sci-feed-list { flex-grow: 1; overflow-y: hidden; }
+    .m-title { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.08em; font-weight: 500; text-transform: uppercase; }
+    .m-value { font-size: 28px; font-family: var(--font-display); font-weight: 700; color: #fff; line-height: 1; text-shadow: 0 0 16px rgba(255,106,0,0.25); letter-spacing: -0.02em; }
+    .m-sub { font-size: 10px; color: rgba(255, 106, 0, 0.45); margin-top: 4px; display:block; font-family: var(--font-mono); }
+
+    /* ── FEED ── */
+    .sci-feed-list { flex-grow: 1; overflow-y: auto; padding: 0; }
     .sci-feed-row {
-      display: grid; grid-template-columns: 120px 80px 1fr 70px 40px;
-      padding: 10px 14px; border-bottom: 1px solid rgba(255,106,0,0.06);
-      font-family: var(--font-mono); font-size: 12px; align-items: center;
-      color: rgba(255,255,255,0.9); transition: background 0.2s;
+      display: grid;
+      grid-template-columns: 110px 70px 1fr 60px 36px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,106,0,0.04);
+      font-family: var(--font-mono); font-size: 11px;
+      align-items: center;
+      color: rgba(255,255,255,0.85);
+      transition: background 0.2s var(--ease-power), transform 0.2s var(--ease-power);
+      opacity: 0; transform: translateX(-12px);
     }
-    .sci-feed-row:hover { background: rgba(255,106,0,0.1); }
-    .sci-feed-row.new { background: rgba(255,61,0,0.15); border-left: 2px solid var(--red); }
-    .sci-pill { padding: 4px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; font-weight: 700; background: rgba(255,255,255,0.05); text-align: center; }
-    
+    .sci-feed-row.visible { opacity: 1; transform: translateX(0); }
+    .sci-feed-row:hover { background: rgba(255,106,0,0.08); transform: translateX(4px); }
+    .sci-feed-row.new {
+      background: rgba(255,61,0,0.12);
+      border-left: 2px solid var(--accent-red);
+      animation: feedPulse 1.5s var(--ease-smooth);
+    }
+    @keyframes feedPulse {
+      0% { background: rgba(255,61,0,0.25); }
+      100% { background: rgba(255,61,0,0.12); }
+    }
+    .sci-pill {
+      padding: 3px 6px; border-radius: 3px; font-size: 9px;
+      text-transform: uppercase; font-weight: 700;
+      text-align: center; letter-spacing: 0.05em;
+    }
+
     .sci-terminal {
-      font-family: var(--font-mono); font-size: 12px;
-      color: rgba(255, 179, 0, 0.8); line-height: 1.7;
+      font-family: var(--font-mono); font-size: 11px;
+      color: rgba(255, 179, 0, 0.7); line-height: 1.8;
     }
-    .sci-cmd-prompt { color: var(--cyan); margin-right: 8px; font-weight:bold; }
+    .sci-cmd-prompt { color: var(--accent-cyan); margin-right: 8px; font-weight: 600; }
 
-    .branding { position: absolute; top: 32px; left: 32px; z-index: 20; pointer-events: auto; }
-    .branding-top { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 32px; color: #fff; line-height: 1; margin-bottom: 4px; text-transform:uppercase;}
-    .branding-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; color: var(--cyan); text-transform: uppercase; }
+    /* ── LEFT COL ── */
+    .left-col { display: flex; flex-direction: column; gap: 16px; }
+    .left-col .sci-panel:nth-child(1) { transition-delay: 0.05s; }
+    .left-col .sci-panel:nth-child(2) { transition-delay: 0.12s; }
 
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 106, 0, 0.4); border-radius: 2px; }
+    /* ── CENTER COL ── */
+    .center-col { display: flex; flex-direction: column; gap: 16px; position: relative; }
+    .center-col .globe-visor { transition-delay: 0.05s; }
+    .center-col .sci-panel { transition-delay: 0.18s; }
 
-    @keyframes slowScan {
-      0% { top: 0; opacity: 0; }
-      10% { opacity: 0.6; }
-      90% { opacity: 0.6; }
-      100% { top: 100%; opacity: 0; }
+    /* ── RIGHT COL ── */
+    .right-col { display: flex; flex-direction: column; gap: 16px; }
+    .right-col .sci-panel:nth-child(1) { transition-delay: 0.1s; }
+    .right-col .sci-panel:nth-child(2) { transition-delay: 0.15s; }
+    .right-col .sci-panel:nth-child(3) { transition-delay: 0.2s; }
+
+    /* ── KINETIC HEADER ── */
+    .kinetic-wrap {
+      display: flex; justify-content: flex-end; align-items: center;
+      gap: 16px; padding: 4px 0 8px;
     }
-    .scanline {
-      position: absolute; left: 0; width: 100%; height: 2px;
-      background: var(--cyan); box-shadow: 0 0 12px var(--cyan);
-      animation: slowScan 4s linear infinite; z-index: 50; pointer-events: none;
+    .kinetic-text {
+      font-family: var(--font-mono); font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.1em;
+    }
+    .kinetic-text .highlight { color: var(--accent-cyan); }
+    .type-cursor {
+      display: inline-block;
+      animation: blink 1s step-end infinite;
+      color: var(--accent-cyan);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── DEMO BUTTON ── */
+    .demo-btn {
+      background: rgba(255, 23, 68, 0.08);
+      border: 1px solid rgba(255, 23, 68, 0.3);
+      color: var(--accent-red);
+      padding: 7px 14px;
+      border-radius: 4px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      font-size: 10px;
+      transition: all 0.2s var(--ease-power);
+      position: relative;
+      overflow: hidden;
+    }
+    .demo-btn:hover {
+      background: rgba(255, 23, 68, 0.15);
+      border-color: var(--accent-red);
+      box-shadow: 0 0 20px rgba(255, 23, 68, 0.2);
+      transform: translateY(-1px);
+    }
+    .demo-btn:active { transform: translateY(0) scale(0.97); }
+    .demo-btn::after {
+      content: ''; position: absolute; top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(255,23,68,0.1) 0%, transparent 60%);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .demo-btn:hover::after { opacity: 1; }
+
+    /* ── AI CONFIDENCE ── */
+    .ai-conf-wrap {
+      margin-top: auto; padding-top: 16px;
+      border-top: 1px dashed rgba(255,106,0,0.15);
+    }
+    .ai-conf-label {
+      font-size: 9px; color: rgba(255,255,255,0.35);
+      text-transform: uppercase; letter-spacing: 0.15em;
+      font-weight: 600; margin-bottom: 6px;
+    }
+    .ai-conf-value {
+      font-size: 38px; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-amber), var(--accent-prime));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      line-height: 1;
+      font-family: var(--font-display);
+      filter: drop-shadow(0 0 12px rgba(255,179,0,0.2));
+    }
+
+    /* ── CLASSIFICATION BARS ── */
+    .class-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 4px;
+    }
+    .class-label {
+      font-size: 10px; font-family: var(--font-mono);
+      color: rgba(255,255,255,0.6); font-weight: 500;
+    }
+    .class-count { font-size: 12px; color: #fff; font-weight: 600; }
+    .class-bar {
+      height: 3px; background: rgba(255,255,255,0.06);
+      border-radius: 2px; overflow: hidden; margin-bottom: 12px;
+    }
+    .class-bar-fill {
+      height: 100%; border-radius: 2px;
+      transition: width 0.6s var(--ease-power);
+    }
+
+    .chain-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0;
+    }
+    .chain-label { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
+    .chain-value { font-family: var(--font-mono); font-size: 11px; color: var(--accent-cyan); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1200px) {
+      .dashboard-grid {
+        grid-template-columns: 260px 1fr 260px;
+        gap: 16px;
+        padding: 20px;
+      }
+    }
+    @media (max-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        gap: 12px;
+        padding: 16px;
+        overflow-y: auto;
+      }
     }
   </style>
 </head>
 <body>
-  <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+  <canvas id="particle-canvas"></canvas>
+  <div class="scanline"></div>
+  <div class="crt-overlay"></div>
 
   <div class="branding">
-    <div class="branding-top">Harvest-X</div>
-    <div class="branding-sub">Threat Intelligence Center</div>
+    <div class="branding-row">
+      <div class="branding-icon">HX</div>
+      <div>
+        <div class="branding-text">Harvest-X</div>
+        <div class="branding-sub">Threat Intelligence Center</div>
+      </div>
+    </div>
   </div>
 
   <div class="dashboard-grid">
-    
     <!-- LEFT COLUMN -->
     <div class="left-col panel">
-      <div style="height: 60px;"></div> <!-- Spacer -->
-      
-      <div class="sci-panel" style="flex: 0 0 auto;">
+      <div style="height: 48px;"></div>
+
+      <div class="sci-panel">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
         <div class="sci-header">
           <span>Global Metrics</span>
           <span class="sci-header-accent" id="current-os">Linux Core</span>
@@ -141,67 +425,75 @@
               <div class="m-title">Active Threats</div>
               <span class="m-sub">Real-time sessions</span>
             </div>
-            <div class="m-value" style="color:var(--red);" id="m-active">0</div>
+            <div class="m-value" style="color:var(--accent-red);" id="m-active">0</div>
           </div>
           <div class="metric-row">
             <div>
-              <div class="m-title">Unique Origin IPs</div>
-              <span class="m-sub">Tracking globally</span>
+              <div class="m-title">Origin IPs</div>
+              <span class="m-sub">Unique sources</span>
             </div>
-            <div class="m-value" style="color:var(--cyan);" id="m-ips">0</div>
+            <div class="m-value" style="color:var(--accent-cyan);" id="m-ips">0</div>
           </div>
           <div class="metric-row">
             <div>
-              <div class="m-title">Total Commands</div>
-              <span class="m-sub">Shell execution logged</span>
+              <div class="m-title">Commands</div>
+              <span class="m-sub">Executions logged</span>
             </div>
-            <div class="m-value" style="color:#ffffff;" id="m-cmds">0</div>
+            <div class="m-value" id="m-cmds">0</div>
           </div>
         </div>
       </div>
 
-      <div class="sci-panel" style="flex: 1;">
+      <div class="sci-panel">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
         <div class="sci-header">
-          <span>Attacker Classification</span>
-          <span class="sci-header-accent">Neural Net Evaluated</span>
+          <span>Classification</span>
+          <span class="sci-header-accent">Neural AI</span>
         </div>
-        <div class="sci-body" style="display:flex; flex-direction:column; gap: 20px;">
+        <div class="sci-body" style="display:flex; flex-direction:column; gap:0;">
           <div>
-             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
-               <span>APT (Advanced)</span><span id="cnt-apt" style="color:#fff;">0</span>
-             </div>
-             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
-               <div id="bar-apt" style="height:100%; width:0%; background:var(--red); transition: width 0.5s; box-shadow:0 0 10px var(--red);"></div>
-             </div>
+            <div class="class-row">
+              <span class="class-label">APT Advanced</span>
+              <span class="class-count" id="cnt-apt">0</span>
+            </div>
+            <div class="class-bar">
+              <div id="bar-apt" class="class-bar-fill" style="width:0%; background:var(--accent-red); box-shadow:0 0 8px var(--accent-red);"></div>
+            </div>
           </div>
           <div>
-             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
-               <span>Automated Bots</span><span id="cnt-bot" style="color:#fff;">0</span>
-             </div>
-             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
-               <div id="bar-bot" style="height:100%; width:0%; background:var(--blue); transition: width 0.5s;"></div>
-             </div>
+            <div class="class-row">
+              <span class="class-label">Automated Bots</span>
+              <span class="class-count" id="cnt-bot">0</span>
+            </div>
+            <div class="class-bar">
+              <div id="bar-bot" class="class-bar-fill" style="width:0%; background:var(--accent-cyan);"></div>
+            </div>
           </div>
           <div>
-             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
-               <span>Human Exploratory</span><span id="cnt-human" style="color:#fff;">0</span>
-             </div>
-             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
-               <div id="bar-human" style="height:100%; width:0%; background:var(--green); transition: width 0.5s;"></div>
-             </div>
+            <div class="class-row">
+              <span class="class-label">Human Exploratory</span>
+              <span class="class-count" id="cnt-human">0</span>
+            </div>
+            <div class="class-bar">
+              <div id="bar-human" class="class-bar-fill" style="width:0%; background:var(--accent-green);"></div>
+            </div>
           </div>
           <div>
-             <div style="display:flex; justify-content:space-between; font-size:11px; font-family:var(--font-mono); margin-bottom:6px; color:rgba(255,255,255,0.7); font-weight:bold;">
-               <span>Mass Scanners</span><span id="cnt-scan" style="color:#fff;">0</span>
-             </div>
-             <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
-               <div id="bar-scan" style="height:100%; width:0%; background:rgba(255,255,255,0.3); transition: width 0.5s;"></div>
-             </div>
+            <div class="class-row">
+              <span class="class-label">Mass Scanners</span>
+              <span class="class-count" id="cnt-scan">0</span>
+            </div>
+            <div class="class-bar">
+              <div id="bar-scan" class="class-bar-fill" style="width:0%; background:rgba(255,255,255,0.25);"></div>
+            </div>
           </div>
-          
-          <div style="margin-top:auto; padding-top:20px; border-top:1px dashed rgba(255,106,0,0.2);">
-             <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom: 8px; letter-spacing:0.1em; font-weight:bold;">AI Confidence Score</div>
-             <div style="font-size:42px; font-weight:700; color:var(--amber); line-height:1; font-family:var(--font-display); text-shadow:0 0 15px rgba(255,179,0,0.3);" id="m-ai-conf">98%</div>
+
+          <div class="ai-conf-wrap">
+            <div class="ai-conf-label">AI Confidence</div>
+            <div class="ai-conf-value" id="m-ai-conf">98%</div>
           </div>
         </div>
       </div>
@@ -209,73 +501,81 @@
 
     <!-- CENTER COLUMN -->
     <div class="center-col panel">
-       <div class="globe-visor">
-          <div class="scanline"></div>
-          <div class="sci-header" style="position:absolute; top:0; left:0; right:0; z-index:5; background:rgba(12,6,2,0.8); border-bottom:1px solid rgba(255,106,0,0.3);">
-            <span>Global Telemetry Vector Simulation</span>
-            <span class="sci-header-accent" id="globes-count">0 active nodes</span>
-          </div>
-          
-          <div id="globe" style="width:100%;height:100%;"></div>
-       </div>
+      <div class="globe-visor" style="opacity:0; animation:fadeSlideIn 0.7s var(--ease-power) 0.05s forwards;">
+        <div class="sci-header" style="position:absolute; top:0; left:0; right:0; z-index:5; background:rgba(8,4,2,0.9); border-bottom:1px solid rgba(255,106,0,0.2); border-radius:7px 7px 0 0;">
+          <span style="font-size:9px;">Global Telemetry</span>
+          <span class="sci-header-accent" id="globes-count" style="font-size:9px;">0 nodes</span>
+        </div>
+        <div id="globe" style="width:100%;height:100%;"></div>
+      </div>
 
-       <div class="sci-panel" style="height: 280px;">
-          <div class="sci-header">
-            <span>Live Intercept Feed</span>
-            <span class="sci-header-accent" id="feed-count">0 events</span>
-          </div>
-          <div style="display: grid; grid-template-columns: 120px 80px 1fr 70px 40px; padding: 10px 14px; font-size:10px; text-transform:uppercase; color:rgba(255,255,255,0.5); border-bottom:1px solid rgba(255,106,0,0.3); background:rgba(255,106,0,0.05); font-weight:bold; letter-spacing:0.05em;">
-            <span>Source IP</span><span>Sys Time</span><span>Payload / Command</span><span>Class</span><span>Risk</span>
-          </div>
-          <div class="sci-body sci-feed-list" id="feed-list" style="padding:0; overflow-y:auto;">
-            <div style="text-align:center; padding: 50px; color:rgba(255,106,0,0.5); font-size:12px; font-family:var(--font-mono);">Awaiting intrusion vectors...</div>
-          </div>
-       </div>
+      <div class="sci-panel" style="height: 260px;">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        <div class="sci-header">
+          <span>Live Intercept Feed</span>
+          <span class="sci-header-accent" id="feed-count">0 events</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 110px 70px 1fr 60px 36px; padding: 8px 12px; font-size:9px; text-transform:uppercase; color:rgba(255,255,255,0.4); border-bottom:1px solid rgba(255,106,0,0.15); background:rgba(255,106,0,0.04); font-weight:600; letter-spacing:0.08em; font-family:var(--font-display);">
+          <span>Source IP</span><span>Time</span><span>Command</span><span>Class</span><span>Risk</span>
+        </div>
+        <div class="sci-body sci-feed-list" id="feed-list" style="padding:0;">
+          <div style="text-align:center; padding:48px; color:rgba(255,106,0,0.4); font-size:11px; font-family:var(--font-mono);">Awaiting intrusion vectors...</div>
+        </div>
+      </div>
     </div>
 
     <!-- RIGHT COLUMN -->
-    <div class="right-col panel" style="padding-top: 60px;">
-       <div style="display:flex; justify-content:flex-end; align-items:center; gap:16px;">
-         <div style="font-family:var(--font-mono); font-size:12px; color:rgba(255,255,255,0.6);" id="sys-time">00:00:00 UTC</div>
-         <button style="background:var(--red-dim); border:1px solid var(--red); color:var(--red); padding:8px 16px; border-radius:4px; font-family:var(--font-display); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; cursor:pointer;" id="demo-btn" onclick="triggerDemo()">
-           ⚠ Simulate Attack
-         </button>
-       </div>
+    <div class="right-col panel" style="padding-top: 48px;">
+      <div class="kinetic-wrap">
+        <span class="kinetic-text" id="sys-time">00:00:00 UTC</span>
+        <span class="kinetic-text" id="kinetic-line"><span class="highlight">&gt;</span> <span id="kinetic-text">system online</span><span class="type-cursor">|</span></span>
+        <button class="demo-btn" id="demo-btn" onclick="triggerDemo()">⚠ Simulate</button>
+      </div>
 
-       <div class="sci-panel" style="flex: 0 0 auto;">
-          <div class="sci-header">
-            <span>Blockchain Integrity</span>
-            <span style="color:var(--green);">● Verified</span>
+      <div class="sci-panel" style="flex: 0 0 auto;">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        <div class="sci-header">
+          <span>Blockchain Integrity</span>
+          <span style="color:var(--accent-green); font-size:9px; font-weight:600;">● Verified</span>
+        </div>
+        <div class="sci-body" style="display:flex; flex-direction:column; gap:4px;">
+          <div class="chain-row">
+            <span class="chain-label">Network</span>
+            <span class="chain-value" style="color:var(--accent-green);">Synced</span>
           </div>
-          <div class="sci-body" style="display:flex; flex-direction:column; gap:8px;">
-             <div class="metric-row" style="padding:8px 0;">
-                <span class="m-title">Network Status</span>
-                <span style="font-family:var(--font-mono); font-size:12px; color:var(--green);">Synced</span>
-             </div>
-             <div class="metric-row" style="padding:8px 0;">
-                <span class="m-title">Blocks Intercepted</span>
-                <span style="font-family:var(--font-mono); font-size:13px; color:#fff;" id="chain-blocks">0</span>
-             </div>
-             <div class="metric-row" style="padding:8px 0; border:none; display:block;">
-                <span class="m-title" style="margin-bottom:8px; display:block;">Latest Block Hash</span>
-                <span style="font-family:var(--font-mono); font-size:11px; color:var(--cyan); word-break:break-all; line-height:1.4;" id="chain-last-hash">—</span>
-             </div>
+          <div class="chain-row">
+            <span class="chain-label">Blocks</span>
+            <span class="chain-value" id="chain-blocks" style="color:#fff;">0</span>
           </div>
-       </div>
+          <div class="chain-row" style="flex-direction:column; align-items:flex-start; gap:4px; border-top:1px solid rgba(255,106,0,0.08); margin-top:4px; padding-top:8px;">
+            <span class="chain-label">Latest Hash</span>
+            <span style="font-family:var(--font-mono); font-size:10px; color:var(--accent-cyan); word-break:break-all; line-height:1.4;" id="chain-last-hash">—</span>
+          </div>
+        </div>
+      </div>
 
-       <div class="sci-panel" style="flex: 1;">
-          <div class="sci-header">
-            <span>Terminal Intercept</span>
-            <span class="sci-header-accent" id="term-session">Standby</span>
+      <div class="sci-panel" style="flex: 1;">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+        <div class="sci-header">
+          <span>Terminal Intercept</span>
+          <span class="sci-header-accent" id="term-session">Standby</span>
+        </div>
+        <div class="sci-body sci-terminal" id="terminal" style="background:rgba(5,2,1,0.5); box-shadow:inset 0 0 40px rgba(0,0,0,1); padding:12px;">
+          <div id="term-lines">
+            <div><span style="color:var(--accent-cyan);font-weight:600;">$</span> system ready — all sensors active</div>
           </div>
-          <div class="sci-body sci-terminal" id="terminal" style="background:rgba(5,2,1,0.6); box-shadow:inset 0 0 30px rgba(0,0,0,1);">
-             <div id="term-lines">
-               <div>System listening on all ports...</div>
-             </div>
-          </div>
-       </div>
+        </div>
+      </div>
     </div>
-
   </div>
 
   <script src="/static/js/nexus.js"></script>
@@ -285,22 +585,83 @@
       Nexus.initParticles('particle-canvas');
       Nexus.initCursor();
       Nexus.initFloatingHexes('body', 6);
-      
-      // Globe
+
       setTimeout(() => {
         const g = new window.AtlasGlobe('globe');
-      }, 300);
+      }, 200);
+
+      staggerPanels();
+      staggerMetrics();
+
+      kineticType();
     });
 
-    const tagMap  = { 'APT': 'tag-apt', 'Bot': 'tag-bot', 'Human': 'tag-human', 'Scanner': 'tag-scanner' };
+    function staggerPanels() {
+      const panels = document.querySelectorAll('.sci-panel');
+      panels.forEach((p, i) => {
+        setTimeout(() => p.classList.add('visible'), 80 + i * 60);
+      });
+    }
+
+    function staggerMetrics() {
+      const rows = document.querySelectorAll('.metric-row');
+      rows.forEach((r, i) => {
+        setTimeout(() => r.classList.add('visible'), 300 + i * 80);
+      });
+    }
+
+    function kineticType() {
+      const el = document.getElementById('kinetic-text');
+      if (!el) return;
+      const phrases = [
+        'system online',
+        'monitoring 24/7',
+        'threat analysis active',
+        'neural engine ready',
+        'global telemetry live',
+        'zero trust enforced',
+      ];
+      let idx = 0, charIdx = 0, dir = 1;
+      function tick() {
+        const phrase = phrases[idx];
+        if (dir === 1) {
+          charIdx++;
+          el.textContent = phrase.slice(0, charIdx);
+          if (charIdx >= phrase.length) { dir = -1; setTimeout(tick, 2000); return; }
+        } else {
+          charIdx--;
+          el.textContent = phrase.slice(0, Math.max(0, charIdx));
+          if (charIdx <= 0) { dir = 1; idx = (idx + 1) % phrases.length; }
+        }
+        setTimeout(tick, dir === 1 ? 40 + Math.random() * 30 : 20);
+      }
+      tick();
+    }
+
+    function animateValue(el, target, suffix = '', duration = 600) {
+      if (!el) return;
+      const start = parseInt(el.textContent) || 0;
+      const startTime = performance.now();
+      function step(now) {
+        const p = Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const current = Math.round(start + (target - start) * eased);
+        el.textContent = current + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const tagMap = { 'APT': 'tag-apt', 'Bot': 'tag-bot', 'Human': 'tag-human', 'Scanner': 'tag-scanner' };
     let displayedSessionIds = new Set();
     let startTime = Date.now();
+    let prevMetrics = { active: 0, ips: 0, cmds: 0 };
 
     function updateClock() {
       const n = new Date();
       const t = [n.getUTCHours(), n.getUTCMinutes(), n.getUTCSeconds()].map(x => String(x).padStart(2,'0')).join(':');
       const el = document.getElementById('sys-time');
-      if(el) el.textContent = \`SYS \${t} UTC\`;
+      if (el) el.textContent = 'SYS ' + t + ' UTC';
     }
     setInterval(updateClock, 1000);
     updateClock();
@@ -308,21 +669,21 @@
     function triggerDemo() {
       const btn = document.getElementById('demo-btn');
       btn.disabled = true;
-      btn.innerHTML = '⟳ Simulating...';
+      btn.textContent = '⟳ Running...';
       Nexus.triggerGlitch(600, 1.2);
-      Nexus.showToast('ATTACK SIMULATION — Threat signatures detected', 'error');
+      Nexus.showToast('ATTACK SIMULATION — Signatures detected', 'error');
 
       for (let i = 0; i < 3; i++) {
         const demo = Nexus.generateDemoSession();
-        addFeedRow(demo, true);
+        setTimeout(() => addFeedRow(demo, true), i * 200);
       }
       setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = \`⚠ Simulate Attack\`;
+        btn.textContent = '⚠ Simulate';
       }, 3000);
     }
 
-    function addFeedRow(d, isDemo = false) {
+    function addFeedRow(d, isDemo) {
       const feedList = document.getElementById('feed-list');
       const type = d.classification || 'Scanner';
       const highlight = type === 'APT' ? 'new' : '';
@@ -334,27 +695,36 @@
       if (empty) empty.remove();
 
       const row = document.createElement('div');
-      row.className = \`sci-feed-row \${highlight}\`;
-      row.innerHTML = \`
-        <span style="color:var(--cyan);font-weight:600;">\${d.src_ip || 'Unknown'}</span>
-        <span style="color:rgba(255,255,255,0.5);">\${time}</span>
-        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#ffffff;">\${cmd}</span>
-        <span class="sci-pill" style="color:\${type==='APT'?'var(--red)':type==='Bot'?'var(--blue)':'rgba(255,255,255,0.5)'}; border:1px solid \${type==='APT'?'var(--red)':type==='Bot'?'var(--blue)':'rgba(255,255,255,0.2)'};">\${type}</span>
-        <span style="text-align:right;font-weight:700;color:\${risk > 70 ? 'var(--red)' : risk > 40 ? 'var(--amber)' : 'var(--green)'};">\${risk}</span>
-      \`;
-      
+      row.className = 'sci-feed-row ' + highlight;
+      row.innerHTML = `
+        <span style="color:var(--accent-cyan);font-weight:600;">${d.src_ip || 'Unknown'}</span>
+        <span style="color:rgba(255,255,255,0.4);font-size:10px;">${time}</span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-size:10px;">${cmd}</span>
+        <span class="sci-pill" style="color:${type === 'APT' ? 'var(--accent-red)' : type === 'Bot' ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.5)'}; border:1px solid ${type === 'APT' ? 'var(--accent-red)' : type === 'Bot' ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.2)'};">${type}</span>
+        <span style="text-align:right;font-weight:700;font-size:11px;color:${risk > 70 ? 'var(--accent-red)' : risk > 40 ? 'var(--accent-amber)' : 'var(--accent-green)'};">${risk}</span>
+      `;
+
       feedList.insertBefore(row, feedList.firstChild);
-      while (feedList.children.length > 100) feedList.removeChild(feedList.lastChild);
+      while (feedList.children.length > 80) feedList.removeChild(feedList.lastChild);
+
+      requestAnimationFrame(() => {
+        row.classList.add('visible');
+        row.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+      });
 
       const termLines = document.getElementById('term-lines');
-      const emptyTerm = termLines.querySelector('.term-empty');
-      if (emptyTerm) emptyTerm.remove();
-
       const termLine = document.createElement('div');
-      termLine.innerHTML = \`<span class="sci-cmd-prompt">root@hpot:~#</span><span style="color:#ffffff;">\${cmd}</span>\`;
+      termLine.style.opacity = '0';
+      termLine.style.transform = 'translateY(4px)';
+      termLine.innerHTML = `<span class="sci-cmd-prompt">root@hpot:~#</span><span style="color:#fff;">${cmd}</span>`;
       termLines.appendChild(termLine);
-      while (termLines.children.length > 40) termLines.removeChild(termLines.firstChild);
-      document.getElementById('term-session').textContent = \`Session: \${d.src_ip || 'Unknown'}\`;
+      requestAnimationFrame(() => {
+        termLine.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+        termLine.style.opacity = '1';
+        termLine.style.transform = 'translateY(0)';
+      });
+      while (termLines.children.length > 30) termLines.removeChild(termLines.firstChild);
+      document.getElementById('term-session').textContent = 'Session: ' + (d.src_ip || 'Unknown');
       document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
     }
 
@@ -374,9 +744,11 @@
       });
 
       try {
-        document.getElementById('m-active').textContent = totalActive;
-        document.getElementById('m-ips').textContent = ips.size;
-        document.getElementById('m-cmds').textContent = totalCmds;
+        if (totalActive !== prevMetrics.active) animateValue(document.getElementById('m-active'), totalActive);
+        if (ips.size !== prevMetrics.ips) animateValue(document.getElementById('m-ips'), ips.size);
+        if (totalCmds !== prevMetrics.cmds) animateValue(document.getElementById('m-cmds'), totalCmds);
+        prevMetrics = { active: totalActive, ips: ips.size, cmds: totalCmds };
+
         document.getElementById('feed-count').textContent = totalActive + ' events';
 
         const total = totalActive || 1;
@@ -389,7 +761,7 @@
         document.getElementById('cnt-bot').textContent = stats.Bot;
         document.getElementById('cnt-human').textContent = stats.Human;
         document.getElementById('cnt-scan').textContent = stats.Scanner;
-        document.getElementById('globes-count').textContent = ips.size + ' active nodes';
+        document.getElementById('globes-count').textContent = ips.size + ' nodes';
       } catch(e){}
     }
 
@@ -397,14 +769,14 @@
       try {
         const base = 'https://shadownet-3dp1.onrender.com';
 
-        const osRes = await fetch(\`\${base}/api/system/os\`).catch(() => null);
+        const osRes = await fetch(base + '/api/system/os').catch(() => null);
         if (osRes && osRes.ok) {
           const osData = await osRes.json();
           const osEl = document.getElementById('current-os');
           if (osEl) osEl.innerText = osData.current_os || 'Linux';
         }
 
-        const res = await fetch(\`\${base}/api/sessions\`).catch(() => null);
+        const res = await fetch(base + '/api/sessions').catch(() => null);
         if (!res || !res.ok) return;
 
         const sessions = await res.json();
