@@ -1,183 +1,190 @@
 <div align="center">
+  <img src="live_monitor/logo.png" alt="ShadowNet Logo" width="120" style="margin-bottom: 15px; border-radius: 8px;" />
   <h1>🛡️ ShadowNet</h1>
-  <h3>Adaptive AI-powered Deception & Threat Intelligence Platform</h3>
-  <p>An intelligent, ML-driven cybersecurity honeypot that deceives, detects, and classifies attackers in real-time.</p>
+  <h3>Adaptive AI-Powered Deception & Threat Intelligence Honeypot Platform</h3>
+  <p>An intelligent, ML-driven cybersecurity honeypot that deceives, sandboxes, and classifies attackers in real-time.</p>
+
+  [![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+  [![Flask](https://img.shields.io/badge/framework-Flask-red.svg)](https://flask.palletsprojects.com/)
+  [![MongoDB](https://img.shields.io/badge/database-MongoDB-green.svg)](https://www.mongodb.com/)
+  [![SocketIO](https://img.shields.io/badge/realtime-Socket.IO-black.svg)](https://socket.io/)
+  [![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 </div>
 
 ---
 
-## 🌐 Live Demo Links
+## 🌐 Live Demo Gateways
 
-**🔗 Fake Login / Gateway Portal (Trap System)**  
-👉 [https://3a07858cb20bedc1-152-57-103-142.serveousercontent.com/static/login.html](https://3a07858cb20bedc1-152-57-103-142.serveousercontent.com/static/login.html)  
-*(Note: Any login attempt triggers attack logging and redirects the user into the honeypot's fake terminal.)*
-
-**🔗 Threat Intelligence Dashboard**  
-👉 [https://a87d38c6b814dc16-152-57-103-142.serveousercontent.com](https://a87d38c6b814dc16-152-57-103-142.serveousercontent.com)  
-*(Note: View real-time attacker behavior, ML classifications, and geographical threat tracking.)*
-
----
-
-## ❌ Why Traditional Solutions Fail
-
-Traditional honeypots and intrusion detection systems have several fundamental flaws:
-- **Static Signatures:** Traditional honeypots are static and easily detected by modern scanners.
-- **No Behavioral Intelligence:** They lack the ability to adapt to attacker behavior dynamically.
-- **Zero Real-Time Adaptation:** They cannot change personas (e.g., from an IoT device to an Enterprise Server) on the fly.
-- **Limited Analysis:** Logging is often rudimentary, providing IP addresses but failing to analyze the *intent* or *sophistication* of the attack.
-- **No Attacker Classification:** They cannot reliably distinguish between automated bots, script kiddies, and Advanced Persistent Threats (APTs).
+*   **🔗 Fake Single Sign-On / Gateway Portal (Deception Trap)**  
+    👉 [Access SSO Login Trap Portal](https://3a07858cb20bedc1-152-57-103-142.serveousercontent.com/static/login.html)  
+    *(Any malicious or unauthorized login attempt triggers persistent browser sandboxing and drops the user into an interactive emulated console).*
+*   **🔗 Unified Defender & Threat Intelligence Dashboard**  
+    👉 [Open ShadowNet Dashboard](https://a87d38c6b814dc16-152-57-103-142.serveousercontent.com)  
+    *(Monitor active telemetry, command histories, geographical threat maps, and machine learning classifications in real-time).*
 
 ---
 
-## ✅ The ShadowNet Solution
+## 🏗️ System Architecture
 
-ShadowNet solves these issues by acting as a highly adaptive, AI-powered deception system. 
+ShadowNet operates a split-plane architecture separating the public **Attacker Deception Surface** from the internal **Threat Intelligence Monitor**:
 
-- **AI-Based Attacker Classification:** Utilizes a Random Forest ML model to instantly classify attackers based on payload behavior.
-- **Adaptive System Personas:** Dynamically shifts its appearance (Linux terminal, Corporate Dashboard, etc.) to match what the attacker is probing for.
-- **Real-Time Logging:** Every keystroke, command, and web request is securely captured and stored in MongoDB.
-- **ML Integration:** Trained on the renowned UNSW-NB15 cybersecurity dataset for high-accuracy threat detection.
-- **Fake Login Trap System:** A completely realistic, but entirely fake, enterprise login portal that captures credentials and traps the attacker in a sandbox.
-- **Threat Intelligence Dashboard:** A sleek, live monitoring panel that provides actionable security insights to network defenders.
+```mermaid
+graph TD
+    %% Attacker Plane
+    Attacker[External Attacker / Bot] -->|Interact| FlaskApp[SSO Login Portal: Port 5000]
+    
+    subgraph Deception Sandbox (Port 5000)
+        FlaskApp -->|Failed Logins / Exploits| AttackerSession[Attacker Session Flagged]
+        AttackerSession -->|Redirect| FakeAdmin[Fake CorpNet Admin Panel]
+        FakeAdmin -->|Command Shell| FakeFS[Adaptive Fake Filesystem]
+    end
 
----
+    %% Data Pipeline
+    FlaskApp -->|Ingest Hook| LogPipe[API /api/ingest: Port 6001]
+    FakeAdmin -->|Telemetry Logging| LogPipe
+    FakeFS -->|Interactive Keystrokes| LogPipe
 
-## 🎯 Key Features
-
-- **Adaptive AI Honeypot**
-- **Real-time Threat Dashboard**
-- **ML-based Classification**
-- **MongoDB Logging**
-- **Fake Login Trap**
-- **Attacker Simulation**
-
----
-
-## 🧠 Core Architecture & Features
-
-### 🖥 Frontend Interfaces (The Trap & The Monitor)
-ShadowNet employs highly realistic UIs designed specifically to deceive attackers and empower defenders:
-- **Fake Login Page:** Simulates an enterprise Single Sign-On (SSO) portal. 
-- **Admin Dashboard UI:** A fake corporate intranet that attackers "break into," complete with dummy user databases and settings.
-- **Honeypot Terminal Simulation:** A web-based shell that fakes a Linux environment, capturing commands while returning realistic errors.
-- **Real-Time Monitoring Interface:** The Threat Intelligence dashboard used by Blue Teams to watch the attacks happen live.
-
-### ⚙️ Backend Systems
-- **HoneypotAI Class:** The core orchestration engine managing the honeypot's state.
-- **AttackerClassifier:** The ML inference engine evaluating payloads.
-- **ResponseEngine:** Dynamically generates realistic fake terminal outputs and HTTP responses based on the attacker's actions.
-- **MongoDB Integration:** High-speed, NoSQL storage for semi-structured attack logs.
-- **Session Tracking System:** Implements "Sticky Sessions" to ensure once an attacker is flagged, they remain trapped in the honeypot environment.
-
-### 📊 Threat Intelligence Dashboard
-The dashboard serves as the central nervous system for security analysts:
-- **Active Threats & Unique IPs:** Tracks concurrent attacker sessions and their origins.
-- **Command Logs:** A live scroll of every terminal command attempted by trapped users.
-- **Threat Level Indicator:** Dynamically adjusts the system's defensive posture based on current attack volume.
-- **Attacker Classification:** Visualizes the breakdown of threats (Bots vs. Humans vs. APTs).
-- **Geo-IP Map:** Plots the geographical origin of attacks on an interactive Leaflet.js map.
-
-### 🤖 Machine Learning 
-- **Dataset:** UNSW-NB15 (Comprehensive network intrusion dataset)
-- **Features Extracted:** `dur` (duration), `spkts` (source packets), `sbytes` (source bytes), `rate`, payload length, SQLi/XSS heuristics.
-- **Model:** Random Forest Classifier (`model.pkl`)
-- **Purpose:** To classify whether a session is benign, exploratory (Human), automated (Bot), or highly sophisticated (APT).
-
-### 🔗 Smart Contract Integration (Concept)
-To ensure the absolute integrity of the gathered threat intelligence, ShadowNet introduces a blockchain-based logging mechanism.
-- **Immutable Attack Logs:** Ensures that sophisticated attackers who might theoretically break out of the sandbox cannot delete their tracks.
-- **Tamper-Proof Storage:** Threat data is hashed and stored on a decentralized ledger.
-- **Core Functions:** 
-  - `logAttack()`: Commits a hashed attack signature to the chain.
-  - `getAttackHistory()`: Retrieves the verified timeline.
-  - `verifyIntegrity()`: Cross-checks MongoDB logs against the blockchain hashes.
+    %% Monitor Plane
+    subgraph Central Intelligence Monitor (Port 6001)
+        LogPipe -->|Process / Classify| Classifier[Behavioral Classifier Engine]
+        Classifier -->|Persist Logs| MongoDB[(MongoDB: shadownet_db)]
+        MongoDB -->|Read API| REST[REST & SocketIO Server]
+        REST -->|WebSocket Stream| Dashboard[Unified Defender UI]
+    end
+    
+    Defender[Security Operations Center] -->|Watch Telemetry| Dashboard
+```
 
 ---
 
-## 🚀 How It Works (Step-by-Step)
+## 🔥 Key Pillars & Features
 
-1. **The Bait:** An attacker discovers the fake login portal and attempts to brute-force or inject SQL.
-2. **The Capture:** The request is captured; the ML `AttackerClassifier` instantly flags the malicious payload.
-3. **The Trap:** The attacker is seamlessly redirected to the fake Admin Dashboard or Terminal Simulation via a "sticky session".
-4. **The Engagement:** The `ResponseEngine` processes their commands, serving them fake files and errors to keep them engaged.
-5. **The Storage:** Every action is permanently stored in MongoDB (and optionally hashed to the Smart Contract).
-6. **The Intelligence:** The Threat Intelligence Dashboard updates in real-time, alerting security teams.
+### 1. Working Behavioral Attacker Classification
+Replaces simplistic IP logging or random labels with a real-time behavioral classifier analyzing command sequences and time intervals:
+*   **Scanner:** Brief session duration (< 60s), low command count, executing discovery keywords (`whoami`, `pwd`, `uname`).
+*   **Bot:** Instantaneous downloads (`wget`, `curl` payloads), zero interval typing speed, immediate malware execution.
+*   **Human / Script Kiddie:** Natural keypress speeds (intervals between 0.3s and 4.0s), targeting credential files (`cat passwords.txt`) or databases (`mysql`, `mongo`).
+*   **APT (Advanced Persistent Threat):** Persistent high-duration sessions, complex multi-stage command execution, database schema harvesting.
 
----
+### 2. Adaptive Fake Filesystem (Response Engine)
+An emulated CLI sandbox running inside the browser that tricks attackers into spending time on fake assets:
+*   **Discovery Commands:** Returns realistic system outputs for standard GNU utilities (`uname -a`, `id`, `whoami`, `pwd`).
+*   **Credential Decoy:** Serving realistic but fake passwords inside `passwords.txt` (`admin : admin123`, `root : Password@2025`).
+*   **Database Emulation:** Connecting to command `mysql` or `mongo` lists mock internal schemas (`customer_db`, `employee_db`, `admin_db`).
+*   **Malware Interceptor:** Simulates downloads for `wget`/`curl` shell scripts into `/tmp/malware_agent` and mimics successful execution.
 
-## 📸 Project Gallery
-
-*(Placeholder for Screenshots)*
-- **Threat Intelligence Dashboard**
-- **ShadowNet Enterprise Portal (Fake Login)**
-- **CorpNet Admin Dashboard (Trap Terminal)**
-
----
-
-## 🧰 Tech Stack
-
-**Frontend:**
-- HTML5, CSS3, Vanilla JavaScript, Leaflet.js
-
-**Backend:**
-- Python 3.11, FastAPI, Flask, WebSockets (Socket.IO)
-
-**Database:**
-- MongoDB, SQLite
-
-**Machine Learning:**
-- Scikit-learn, Pandas, Joblib
-
-**Infrastructure & Tools:**
-- Docker & Docker Compose
-- Cowrie (SSH/Telnet Emulation)
+### 3. Hardened Session Isolation (Anti-Bypass Security)
+Includes deep protection to keep attackers trapped while guaranteeing legitimate admins bypass the trap:
+*   **First-Verification Auth:** Validates user credentials against the real SQL database *prior* to processing security thresholds, ensuring legitimate administrators are never trapped.
+*   **Cache Prevention Headers:** Injects strict Cache-Control headers (`no-store`, `no-cache`, `must-revalidate`) preventing browser history navigation from leaking admin panels to unauthorized users.
+*   **State Purging:** A `/logout` handler completely destroys the user session, clearing the IP-locked failed logins database, brute-force request maps, and cookie headers.
 
 ---
 
-## 📦 Installation & Setup
+## 🗄️ Database Schemas & Storage (MongoDB)
 
-**1. Clone the repository:**
+All data persistent layers in the Live Monitor run entirely on **MongoDB** under `shadownet_db`.
+
+### Collections
+1.  **`attacker_logs`**: Holds real-time sessions with their classification and threat scoring.
+    ```json
+    {
+      "session_id": "web_127_0_0_1_1781250162",
+      "timestamp": "2026-06-12T12:00:00Z",
+      "attacker_ip": "127.0.0.1",
+      "country": "United States",
+      "city": "San Francisco",
+      "classification": "Human",
+      "threat_level": "MEDIUM",
+      "threat_score": 65,
+      "current_interest": "Credentials",
+      "commands": [
+        { "time": "2026-06-12T12:00:00Z", "command": "ls" },
+        { "time": "2026-06-12T12:00:10Z", "command": "cat passwords.txt" }
+      ],
+      "command_count": 2,
+      "session_duration": 10,
+      "confidence": 75,
+      "payload_download_detected": false,
+      "login_attempts": 0,
+      "status": "active"
+    }
+    ```
+2.  **`alerts`**: High-priority alert logs generated automatically when threat scores exceed `80` (e.g. download command executions).
+3.  **`session_replays`**: Raw chronological history array containing commands and duration metadata for analyst playbacks.
+
+---
+
+## 📁 Repository Directory Structure
+
+```text
+├── honeypot-flask/           # Attacker Deception Surface Portal
+│   ├── app.py                # Main Flask & Socket.IO server for Port 5000
+│   ├── db.py                 # Local Flask log-and-forward client
+│   ├── real_db.py            # Local SQLite database for legitimate admin users
+│   ├── real_users.db         # Database storing legitimate credentials
+│   ├── model.pkl             # Trained Scikit-Learn Model
+│   ├── templates/            # HTML Templates (real_dashboard, fake_admin, fake_login, etc.)
+│   └── static/               # Assets & styles for decoy portals
+├── live_monitor/             # Central Monitoring Console & Database Backend
+│   ├── server.py             # Main Flask, Socket.IO & MongoDB server for Port 6001
+│   ├── classifier.py         # Heuristic & ML Attacker Classification logic
+│   ├── index.html            # Unified Threat Intelligence Dashboard Frontend
+│   └── logo.png              # ShadowNet Platform Brand Logo
+├── test_flask_honeypot.py    # Pytest suite for Flask routes and exploit traps
+└── test_adaptive_deception.py# Pytest suite for classification accuracy and sandbox isolation
+```
+
+---
+
+## 🛠️ Installation & Execution
+
+### Prerequisites
+*   Python 3.11+
+*   MongoDB installed and running locally on standard port `27017`
+
+### 1. Configure the Environment
+Clone the repository and install required modules:
 ```bash
-git clone https://github.com/yourusername/shadownet.git
+git clone https://github.com/your-org/shadownet.git
 cd shadownet
+pip install -r honeypot-flask/requirements.txt
 ```
 
-**2. Install Python dependencies:**
+### 2. Start the Live Monitor Server
+Run the MongoDB-backed Threat Intelligence server on **Port 6001**:
 ```bash
-pip install -r requirements.txt
+python live_monitor/server.py
+```
+*(This starts the API server and WebSocket publisher, serving the main SOC interface at `http://localhost:6001`).*
+
+### 3. Start the Honeypot Portal
+In a new terminal window, start the main Web Honeypot on **Port 5000**:
+```bash
+python honeypot-flask/app.py
+```
+*(This serves the Single Sign-On decoy at `http://localhost:5000`).*
+
+---
+
+## 🧪 Testing and Verification
+
+Ensure both servers are running, then trigger the automated test suites:
+
+### Run Attacker Traps & Flask Validation
+Tests exploit payloads (SQLi, XSS, Path Traversal, Brute-Force threshold detections) and verify that threats are correctly logged:
+```bash
+pytest test_flask_honeypot.py -v
 ```
 
-**3. Run MongoDB (Ensure MongoDB is installed locally or update URI):**
+### Run Behavioral Classification & Sandbox Isolation Tests
+Tests the emulated command processing, bot-detection heuristics, and ensures session clear logs correctly remove state upon logging out:
 ```bash
-mongod
-```
-
-**4. Train the ML Model (Optional - requires dataset):**
-```bash
-python train_model.py
-```
-
-**5. Start the Honeypot Backend & Dashboards:**
-```bash
-# To run via Python scripts
-cd MIRAGE
-python main.py
-
-# OR: Deploy using Docker Compose (Recommended)
-docker-compose up -d --build
+pytest test_adaptive_deception.py -v
 ```
 
 ---
 
-## 📌 Use Cases
-
-- **Cybersecurity Research:** Gather modern malware signatures and zero-day exploit patterns.
-- **Threat Intelligence Systems:** Feed verified attacker IPs and tactics into corporate firewalls.
-- **Enterprise Security Monitoring:** Serve as an early-warning tripwire inside corporate networks.
-- **Red Team / Blue Team Exercises:** Provide a safe, realistic environment for attack simulation and defense training.
-
----
-
-## 🌍 Impact
-
-ShadowNet transforms passive defense into active engagement. By deceiving attackers, it wastes their time and resources while providing Blue Teams with **early detection**, **real-time visibility**, and **actionable threat intelligence** to fortify their actual networks.
+## 🛡️ Developer & License
+*   **Author:** ShadowNet Security Team
+*   **License:** MIT License. Distributed for cybersecurity training, research, and threat mitigation study.
