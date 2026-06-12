@@ -28,34 +28,7 @@
 
 ShadowNet operates a split-plane architecture separating the public **Attacker Deception Surface** from the internal **Threat Intelligence Monitor**:
 
-```mermaid
-graph TD
-    %% Attacker Plane
-    Attacker[External Attacker / Bot] -->|Interact| FlaskApp[SSO Login Portal: Port 5000]
-    
-    subgraph Deception Sandbox (Port 5000)
-        FlaskApp -->|Failed Logins / Exploits| AttackerSession[Attacker Session Flagged]
-        AttackerSession -->|Redirect| FakeAdmin[Fake CorpNet Admin Panel]
-        FakeAdmin -->|Command Shell| FakeFS[Adaptive Fake Filesystem]
-    end
 
-    %% Data Pipeline
-    FlaskApp -->|Ingest Hook| LogPipe[API /api/ingest: Port 6001]
-    FakeAdmin -->|Telemetry Logging| LogPipe
-    FakeFS -->|Interactive Keystrokes| LogPipe
-
-    %% Monitor Plane
-    subgraph Central Intelligence Monitor (Port 6001)
-        LogPipe -->|Process / Classify| Classifier[Behavioral Classifier Engine]
-        Classifier -->|Persist Logs| MongoDB[(MongoDB: shadownet_db)]
-        MongoDB -->|Read API| REST[REST & SocketIO Server]
-        REST -->|WebSocket Stream| Dashboard[Unified Defender UI]
-    end
-    
-    Defender[Security Operations Center] -->|Watch Telemetry| Dashboard
-```
-
----
 
 ## 🔥 Key Pillars & Features
 
