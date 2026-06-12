@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harvest-X Nexus — Cyber Defense Platform</title>
+  <link rel="stylesheet" href="/static/css/nexus.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    #globe-bg {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1; opacity: 0;
+      transition: opacity 2.5s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+    #globe-bg canvas { width: 100% !important; height: 100% !important; }
+
+    .portal {
+      position: relative; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; padding: var(--space-24);
+    }
+    .portal-card {
+      width: 100%; max-width: 500px;
+      padding: var(--space-48) var(--space-40);
+      text-align: center; position: relative;
+    }
+    .portal-card::before {
+      content: '';
+      position: absolute; inset: -1px;
+      border-radius: var(--glass-radius);
+      background: linear-gradient(135deg, var(--cyan), transparent 30%, var(--purple) 70%, transparent);
+      opacity: 0.15; z-index: -1;
+      animation: border-glow 4s var(--ease-in-out) infinite;
+    }
+    @keyframes border-glow {
+      0%, 100% { opacity: 0.1; }
+      50% { opacity: 0.25; }
+    }
+    .portal-logo {
+      width: 80px; height: 80px;
+      margin: 0 auto var(--space-20);
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display);
+      font-weight: var(--weight-900);
+      font-size: 36px; color: var(--bg-deep);
+      box-shadow: 0 0 60px rgba(0, 240, 255, 0.3), 0 0 120px rgba(179, 136, 255, 0.1);
+      animation: pulse-logo 4s var(--ease-in-out) infinite;
+    }
+    @keyframes pulse-logo {
+      0%, 100% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.2), 0 0 80px rgba(179, 136, 255, 0.05); }
+      50% { box-shadow: 0 0 80px rgba(0, 240, 255, 0.4), 0 0 160px rgba(179, 136, 255, 0.15); }
+    }
+    .portal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-hero);
+      font-weight: var(--weight-800);
+      letter-spacing: var(--tracking-tight);
+      margin-bottom: var(--space-8);
+      line-height: 1;
+    }
+    .portal-subtitle {
+      font-size: var(--text-body);
+      color: var(--text-secondary);
+      margin-bottom: var(--space-32);
+      font-weight: var(--weight-400);
+      line-height: var(--leading-relaxed);
+      min-height: 1.5em;
+    }
+    .portal-tagline {
+      font-size: var(--text-micro);
+      color: var(--text-dim);
+      letter-spacing: var(--tracking-widest);
+      margin-bottom: var(--space-24);
+      font-family: var(--font-mono);
+    }
+    .portal-tagline span { color: var(--cyan); text-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
+    .portal-status {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--space-8); margin-bottom: var(--space-28);
+      font-size: var(--text-small); color: var(--green);
+      font-family: var(--font-mono); font-weight: var(--weight-500);
+    }
+    .portal-status .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse-dot 1.5s var(--ease-in-out) infinite;
+    }
+    .portal-btn { width: 100%; padding: var(--space-16) var(--space-24); font-size: var(--text-body); letter-spacing: var(--tracking-wider); margin-bottom: var(--space-12); }
+    .portal-features { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-10); margin-top: var(--space-28); }
+    .portal-feat {
+      padding: var(--space-14) var(--space-12); border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border);
+      font-size: var(--text-micro); color: var(--text-secondary);
+      font-family: var(--font-mono); transition: all var(--dur-hover) var(--ease-out-expo);
+      font-weight: var(--weight-500); cursor: default; position: relative; overflow: hidden;
+    }
+    .portal-feat::after {
+      content: ''; position: absolute; top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0,240,255,0.03), transparent);
+      transition: left 0.6s var(--ease-out-expo);
+    }
+    .portal-feat:hover::after { left: 100%; }
+    .portal-feat:hover {
+      border-color: rgba(0, 240, 255, 0.2);
+      background: rgba(0, 240, 255, 0.04);
+      transform: translateY(-2px);
+    }
+    .portal-feat .icon { font-size: 20px; display: block; margin-bottom: var(--space-6); }
+    .portal-footer {
+      margin-top: var(--space-24);
+      font-size: var(--text-micro); color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+    .version-badge {
+      display: inline-block; padding: var(--space-2) var(--space-12);
+      border-radius: 20px; background: rgba(0, 240, 255, 0.06);
+      border: 1px solid rgba(0, 240, 255, 0.12);
+      color: var(--cyan); font-size: var(--text-tiny);
+      font-family: var(--font-mono); margin-bottom: var(--space-16);
+      letter-spacing: var(--tracking-wide);
+    }
+    @media (max-width: 480px) {
+      .portal-card { padding: var(--space-32) var(--space-20); }
+      .portal-features { grid-template-columns: 1fr; }
+      .portal-title { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="globe-bg" data-autorotate="true"></div>
+  <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:4;pointer-events:none;opacity:0;transition:opacity 2.5s ease;"></canvas>
+  <canvas id="matrix-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;opacity:0;transition:opacity 2.5s ease;"></canvas>
+
+  <div style="position:fixed;top:50%;left:50%;z-index:0;pointer-events:none;transform:translate(-50%,-50%);">
+    <div class="globe-ring"></div>
+    <div class="globe-ring"></div>
+    <div class="globe-ring"></div>
+  </div>
+
+  <div class="portal">
+    <div class="glass portal-card" style="opacity:0;transform:translateY(40px) scale(0.95);" id="portal-card">
+      <div class="cyber-corner tl"></div>
+      <div class="cyber-corner tr"></div>
+      <div class="cyber-corner bl"></div>
+      <div class="cyber-corner br"></div>
+      <div class="data-stream"></div>
+
+      <div class="portal-logo" style="opacity:0;transform:scale(0.5) rotate(-15deg);" id="logo-el">HX</div>
+      <div class="version-badge" style="opacity:0;" id="badge-el">v2026 · NEXUS</div>
+      <h1 class="portal-title glitch-hover" id="title-el" style="opacity:0;transform:translateY(20px);">
+        Harvest-<span style="color:var(--cyan);">X</span>
+      </h1>
+      <div class="portal-subtitle" id="subtitle-el" style="opacity:0;">
+        <span id="kinetic-subtitle"></span><span class="type-cursor" id="type-cursor" style="opacity:0;">|</span>
+      </div>
+      <div class="portal-tagline" id="tagline-el" style="opacity:0;">
+        Real-time · AI-powered · <span>Unstoppable</span>
+      </div>
+      <div class="portal-status" id="status-el" style="opacity:0;">
+        <div class="dot"></div>
+        System Online — All Sensors Active
+      </div>
+      <button class="btn btn-primary portal-btn btn-glow" id="btn-dash" style="opacity:0;transform:translateY(15px);" onclick="goToDashboard()">
+        ⟡ Launch Command Center
+      </button>
+      <button class="btn btn-green portal-btn btn-sm" id="btn-mon" style="opacity:0;transform:translateY(15px);" onclick="goToMonitor()">
+        Open Live Monitor
+      </button>
+      <div class="portal-features" id="features-el" style="opacity:0;">
+        <div class="portal-feat"><div class="icon">🛡</div>Multi-OS Honeypot</div>
+        <div class="portal-feat"><div class="icon">🧠</div>AI Threat Detection</div>
+        <div class="portal-feat"><div class="icon">🌐</div>3D Global Telemetry</div>
+        <div class="portal-feat"><div class="icon">🔗</div>Blockchain Forensics</div>
+      </div>
+      <div class="portal-footer" id="footer-el" style="opacity:0;">
+        Groq AI Engine · Real-time Classification · Zero Trust
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/nexus.js"></script>
+  <script src="/static/js/globe.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Insane effects everywhere
+      Nexus.initCursor();
+      Nexus.initFloatingHexes('body', 10);
+      Nexus.initCardTilt('.portal-card');
+      // ─── SEQUENCE: Globe → Particles → Matrix → Card → Kinetic Text ───
+
+      // 1. Initialize globe immediately (t=0)
+      const globeBg = document.getElementById('globe-bg');
+      const globe = new window.AtlasGlobe('globe-bg');
+      // Add some initial markers to make it look alive
+      globe.addMarker(40.7128, -74.0060, '#ff1744');  // NY
+      globe.addMarker(51.5074, -0.1278, '#ff1744');   // London
+      globe.addMarker(35.6762, 139.6503, '#ff1744');  // Tokyo
+      globe.addMarker(55.7558, 37.6173, '#ffab00');   // Moscow
+      globe.addMarker(39.9042, 116.4074, '#ffab00');  // Beijing
+      globe.addMarker(-33.8688, 151.2093, '#00ff88');  // Sydney
+
+      // 2. Fade in globe (t=200ms)
+      setTimeout(() => { globeBg.style.opacity = '1'; }, 200);
+
+      // 3. Fade in particles (t=1200ms)
+      setTimeout(() => {
+        const pc = document.getElementById('particle-canvas');
+        pc.style.opacity = '1';
+        Nexus.initParticles('particle-canvas');
+      }, 1200);
+
+      // 4. Fade in matrix rain (t=1800ms)
+      setTimeout(() => {
+        const mc = document.getElementById('matrix-canvas');
+        mc.style.opacity = '0.1';
+        Nexus.initMatrix('matrix-canvas');
+      }, 1800);
+
+      // 5. Portal card entrance (t=2200ms)
+      setTimeout(() => {
+        const card = document.getElementById('portal-card');
+        card.style.transition = 'all 700ms cubic-bezier(0.19, 1, 0.22, 1)';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0) scale(1)';
+      }, 2200);
+
+      // 6. Logo spring in (t=2500ms)
+      setTimeout(() => {
+        const logo = document.getElementById('logo-el');
+        logo.style.transition = 'all 600ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+        logo.style.opacity = '1';
+        logo.style.transform = 'scale(1) rotate(0deg)';
+      }, 2500);
+
+      // 7. Stagger remaining elements
+      const entryEls = [
+        { id: 'badge-el', delay: 2700 },
+        { id: 'title-el', delay: 2900 },
+        { id: 'tagline-el', delay: 3300 },
+        { id: 'status-el', delay: 3500 },
+        { id: 'btn-dash', delay: 3700 },
+        { id: 'btn-mon', delay: 3900 },
+        { id: 'features-el', delay: 4100 },
+        { id: 'footer-el', delay: 4300 },
+      ];
+      entryEls.forEach(({ id, delay }) => {
+        setTimeout(() => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.style.transition = 'all 500ms cubic-bezier(0.19, 1, 0.22, 1)';
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0) scale(1)';
+        }, delay);
+      });
+
+      // 8. Kinetic typing on subtitle (starts at 3200ms)
+      setTimeout(() => {
+        const cursor = document.getElementById('type-cursor');
+        if (cursor) cursor.style.opacity = '1';
+        const el = document.getElementById('kinetic-subtitle');
+        if (!el) return;
+        const text = 'Adaptive Threat Intelligence Platform';
+        el.textContent = '';
+        let i = 0;
+        function typeNext() {
+          if (i >= text.length) return;
+          el.textContent += text[i];
+          i++;
+          setTimeout(typeNext, 25 + Math.random() * 20);
+        }
+        typeNext();
+      }, 3200);
+    });
+
+    function goToDashboard() {
+      const btn = document.getElementById('btn-dash');
+      btn.textContent = '⟳ Initializing...';
+      btn.disabled = true;
+      Nexus.showToast('▸ Nexus handshake initiated', '');
+      Nexus.triggerGlitch(500, 0.6);
+      setTimeout(() => { window.location.href = '/dashboard'; }, 700);
+    }
+
+    function goToMonitor() {
+      window.location.href = '/monitor';
+    }
+
+    console.log('%c▐═══════════════════════════════════▐', 'font-size:10px;color:#00f0ff;');
+    console.log('%c  HARVEST-X NEXUS v2026', 'font-size:24px;font-weight:bold;color:#00f0ff;text-shadow:0 0 20px rgba(0,240,255,0.5);');
+    console.log('%c  ▸ Globe-first threat intelligence', 'font-size:13px;color:#00ff88;');
+    console.log('%c  ▸ Kinetic typography engine', 'font-size:13px;color:#00ff88;');
+    console.log('%c  ▸ 3D global telemetry active', 'font-size:13px;color:#00ff88;');
+    console.log('%c▐═══════════════════════════════════▐', 'font-size:10px;color:#00f0ff;');
+  </script>
+</body>
+</html>

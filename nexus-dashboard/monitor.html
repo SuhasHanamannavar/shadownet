@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harvest-X Monitor — Live Session Viewer</title>
+  <link rel="stylesheet" href="/static/css/nexus.css" />
+  <style>
+    .monitor-layout { display:flex; flex:1; overflow:hidden; position:relative; z-index:2; }
+    .monitor-sidebar {
+      width: 280px;
+      background: var(--bg-glass);
+      backdrop-filter: var(--glass-blur);
+      border-right: 1px solid var(--glass-border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .sidebar-title {
+      padding: var(--space-16) var(--space-16);
+      border-bottom: 1px solid var(--glass-border);
+      font-size: var(--text-tiny);
+      font-weight: var(--weight-700);
+      color: var(--text-muted);
+      letter-spacing: var(--tracking-widest);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-count { color: var(--cyan); font-family: var(--font-mono); font-size: var(--text-small); }
+    .session-list { flex:1; overflow-y:auto; padding: var(--space-8); }
+    .session-list::-webkit-scrollbar { width: 3px; }
+    .session-list::-webkit-scrollbar-thumb { background: var(--text-dim); border-radius: 2px; }
+    .session-card {
+      padding: var(--space-10) var(--space-12);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border);
+      margin-bottom: var(--space-6);
+      cursor: pointer;
+      transition: all var(--dur-card) var(--ease-out-expo);
+      background: rgba(255,255,255,0.02);
+      position: relative;
+      overflow: hidden;
+    }
+    .session-card::before {
+      content: ''; position: absolute;
+      top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0,240,255,0.03), transparent);
+      transition: left 0.5s var(--ease-out-expo);
+    }
+    .session-card:hover::before { left: 100%; }
+    .session-card:hover { border-color: rgba(0,240,255,0.2); background: rgba(0,240,255,0.04); transform: translateX(2px); }
+    .session-card.active-sel { border-color: var(--cyan); background: rgba(0,240,255,0.06); }
+    .session-card.active-sel::after { content: '▸'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--cyan); font-size: 10px; }
+    .session-card.ended { opacity: 0.5; }
+    .session-card.high-risk:hover {
+      border-color: var(--red);
+      box-shadow: 0 0 12px rgba(255,23,68,0.15);
+      transform: translateX(2px) skewX(-1deg);
+    }
+    .sc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-6); }
+    .sc-ip { font-family:var(--font-mono); font-size:var(--text-small); font-weight:var(--weight-600); color:var(--text-primary); }
+    .sc-status { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .sc-status.live { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse-dot 1.5s infinite; }
+    .sc-status.dead { background:var(--text-dim); }
+    .sc-meta { display:flex; align-items:center; gap:var(--space-6); flex-wrap:wrap; margin-top:var(--space-4); }
+    .sc-cmds { font-size:var(--text-micro); color:var(--text-muted); font-family:var(--font-mono); margin-top:var(--space-4); }
+
+    .monitor-pane { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .term-header {
+      padding: var(--space-12) var(--space-20);
+      background: var(--bg-glass);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .term-info { display: flex; gap: var(--space-24); align-items: center; flex-wrap: wrap; }
+    .term-info-label { font-size:var(--text-tiny); color:var(--text-dim); letter-spacing:var(--tracking-wider); margin-bottom:var(--space-2); }
+    .term-info-value { font-size:var(--text-small); font-family:var(--font-mono); color:var(--text-primary); }
+
+    .monitor-terminal {
+      flex:1; overflow-y:auto; padding:var(--space-20);
+      font-family:var(--font-mono); font-size:var(--text-small); line-height:1.8;
+      background: var(--bg-terminal);
+    }
+    .monitor-terminal::-webkit-scrollbar { width: 4px; }
+    .monitor-terminal::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+    .term-entry { margin-bottom:var(--space-2); display:flex; gap:var(--space-12); }
+    .term-ts { color:var(--text-dim); font-size:var(--text-micro); flex-shrink:0; padding-top:2px; width:70px; }
+    .term-body { flex:1; }
+    .term-cmd { color:var(--green); }
+    .term-cmd.hi-risk { color:var(--red); }
+    .term-cmd.med-risk { color:var(--amber); }
+    .term-resp { color:var(--text-secondary); font-size:var(--text-small); padding-left:var(--space-16); white-space:pre-wrap; }
+    .prompt { color:var(--green); margin-right:var(--space-6); }
+
+    .monitor-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim); gap:var(--space-12); }
+    .monitor-empty .icon { font-size:40px; opacity:0.2; }
+
+    .alert-banner {
+      display:none;
+      background: linear-gradient(90deg, var(--red-dim), transparent);
+      border-bottom: 1px solid rgba(255,23,68,0.3);
+      padding: var(--space-8) var(--space-20);
+      font-size: var(--text-small);
+      color: var(--red);
+      font-family: var(--font-mono);
+      flex-shrink: 0; position: relative; z-index: 2;
+    }
+    .alert-banner.show { display:flex; align-items:center; gap:var(--space-10); }
+
+    .top-stats { display:flex; gap:var(--space-20); align-items:center; padding:0 var(--space-20); }
+    .top-stat { text-align:center; }
+    .top-stat .val { font-size:18px; font-weight:var(--weight-700); font-family:var(--font-mono); line-height:1; }
+    .top-stat .lbl { font-size:var(--text-tiny); color:var(--text-muted); letter-spacing:var(--tracking-widest); margin-top:var(--space-2); }
+    .top-stat.green .val { color:var(--green); }
+    .top-stat.red .val { color:var(--red); }
+    .top-stat.cyan .val { color:var(--cyan); }
+  </style>
+</head>
+<body style="display:flex;flex-direction:column;height:100vh;">
+
+  <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+
+  <header class="nexus-header" style="position:relative;z-index:2;">
+    <div class="header-left">
+      <div class="header-logo">
+        <div class="logo-icon">HX</div>
+        <div>Harvest-X <span style="font-weight:400;color:var(--text-secondary);font-size:14px;">👁 Monitor</span></div>
+      </div>
+      <div class="top-stats">
+        <div class="top-stat green"><div class="val" id="s-active">0</div><div class="lbl">Active</div></div>
+        <div class="top-stat cyan"><div class="val" id="s-total">0</div><div class="lbl">Total</div></div>
+        <div class="top-stat red"><div class="val" id="s-hirisk">0</div><div class="lbl">High Risk</div></div>
+        <div class="top-stat green"><div class="val" id="s-cmds">0</div><div class="lbl">Commands</div></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill"><div class="status-dot"></div><span id="sys-time">connecting...</span></div>
+    </div>
+  </header>
+
+  <div class="alert-banner" id="alert-banner">
+    <span>⚠</span><span id="alert-text"></span>
+    <span style="margin-left:auto;cursor:pointer;color:var(--text-muted);" onclick="this.parentElement.classList.remove('show')">✕</span>
+  </div>
+
+  <div class="monitor-layout">
+    <div class="monitor-sidebar">
+      <div class="sidebar-title"><span>Sessions</span><span class="sidebar-count" id="session-count">0</span></div>
+      <div class="session-list" id="session-list">
+        <div class="monitor-empty" style="height:200px;"><div class="icon">⬛</div><p>Waiting for attackers...</p></div>
+      </div>
+    </div>
+
+    <div class="monitor-pane">
+      <div class="term-header">
+        <div class="term-info">
+          <div><div class="term-info-label">Session ID</div><div class="term-info-value" id="ti-sid">—</div></div>
+          <div><div class="term-info-label">IP Address</div><div class="term-info-value" id="ti-ip">—</div></div>
+          <div><div class="term-info-label">Classification</div><div class="term-info-value" id="ti-type">—</div></div>
+          <div><div class="term-info-label">Risk Score</div><div class="term-info-value" id="ti-risk">—</div></div>
+          <div><div class="term-info-label">Commands</div><div class="term-info-value" id="ti-cmds">0</div></div>
+        </div>
+        <div style="display:flex;gap:var(--space-8);">
+          <button class="btn btn-ghost btn-sm" onclick="clearTerminal()">Clear</button>
+          <button class="btn btn-green btn-sm" id="replay-btn" onclick="replaySession()" disabled>▶ Replay</button>
+          <button class="btn btn-primary btn-sm" id="export-btn" onclick="exportSession()" disabled>↓ Export</button>
+        </div>
+      </div>
+
+      <div class="monitor-terminal" id="terminal">
+        <div class="monitor-empty">
+          <div class="icon">⬛</div>
+          <p>Select a session to view live activity</p>
+          <p style="font-size:var(--text-micro);color:var(--text-dim);">New sessions appear automatically in the sidebar</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/nexus.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Nexus) {
+        Nexus.initParticles('particle-canvas');
+        Nexus.initCursor();
+        Nexus.initFloatingHexes('body', 4);
+        Nexus.initCardTilt('.session-card');
+      }
+    });
+
+    // ── NATIVE WEBSOCKET ──
+    let sessions = {};
+    let activeSession = null;
+    let replayTimer = null;
+    let ws = null;
+
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}/ws/feed`);
+      ws.onopen = () => { document.getElementById('sys-time').textContent = 'Live  ●'; };
+      ws.onclose = () => {
+        document.getElementById('sys-time').textContent = 'Disconnected';
+        setTimeout(connectWS, 2000);
+      };
+      ws.onerror = () => { document.getElementById('sys-time').textContent = 'Reconnecting...'; };
+      ws.onmessage = (event) => {
+        try {
+          const d = JSON.parse(event.data);
+          handleWSEvent(d);
+        } catch (e) {}
+      };
+    }
+    connectWS();
+
+    function handleWSEvent(d) {
+      const sid = d.session_id;
+      if (!sid) return;
+
+      // session_start
+      if (d.type === 'session_start' || d.event === 'session_start') {
+        if (!sessions[sid]) sessions[sid] = { ...d, commands: [], status: 'active' };
+        renderSidebar(); loadStats();
+        return;
+      }
+
+      // command_executed
+      if (d.type === 'command_executed' || d.event === 'command_executed' || d.command || d.cmd) {
+        if (!sessions[sid]) {
+          sessions[sid] = {
+            session_id: sid, src_ip: d.src_ip, attacker_type: d.attacker_type || 'Scanner',
+            risk_score: d.risk_score || 0, status: 'active',
+            start_time: d.timestamp || new Date().toISOString(), commands: [],
+          };
+        }
+        sessions[sid].commands.push(d);
+        sessions[sid].risk_score = Math.max(sessions[sid].risk_score || 0, d.risk_score || 0);
+        if (sid === activeSession) {
+          appendTermLine(d);
+          document.getElementById('ti-cmds').textContent = sessions[sid].commands.length;
+          document.getElementById('ti-risk').textContent = sessions[sid].risk_score;
+        }
+        renderSidebar(); loadStats();
+        return;
+      }
+
+      // session_end
+      if (d.type === 'session_end' || d.event === 'session_end') {
+        if (sessions[sid]) sessions[sid].status = 'ended';
+        renderSidebar(); loadStats();
+        return;
+      }
+
+      // alert
+      if (d.type === 'alert' || d.event === 'alert') {
+        document.getElementById('alert-text').textContent = d.message || d.msg || JSON.stringify(d);
+        document.getElementById('alert-banner').classList.add('show');
+        setTimeout(() => document.getElementById('alert-banner').classList.remove('show'), 8000);
+      }
+    }
+
+    async function loadSessions() {
+      const r = await fetch('https://shadownet-3dp1.onrender.com/api/sessions').catch(() => null);
+      if (!r) return;
+      const data = await r.json();
+      if (data && typeof data === 'object') {
+        Object.entries(data).forEach(([sid, s]) => {
+          if (!sessions[sid]) sessions[sid] = { ...s, commands: s.commands || [], status: 'active' };
+        });
+        renderSidebar();
+      }
+    }
+
+    async function loadSessionDetail(sid) {
+      const r = await fetch('https://shadownet-3dp1.onrender.com/api/sessions').catch(() => null);
+      if (!r) return;
+      const data = await r.json();
+      if (data && data[sid]) {
+        sessions[sid].commands = data[sid].commands || sessions[sid].commands;
+        Object.assign(sessions[sid], data[sid]);
+      }
+    }
+
+    async function loadStats() {
+      let total = Object.keys(sessions).length;
+      let active = 0, highRisk = 0, cmds = 0;
+      Object.values(sessions).forEach(s => {
+        if (s.status === 'active') active++;
+        if (s.risk_score > 70) highRisk++;
+        cmds += (s.commands || []).length;
+      });
+      document.getElementById('s-active').textContent = active;
+      document.getElementById('s-total').textContent = total;
+      document.getElementById('s-hirisk').textContent = highRisk;
+      document.getElementById('s-cmds').textContent = cmds;
+      document.getElementById('session-count').textContent = total;
+    }
+
+    function renderSidebar() {
+      const list = document.getElementById('session-list');
+      const sids = Object.keys(sessions).sort((a, b) => {
+        const ta = sessions[a].start_time || ''; const tb = sessions[b].start_time || '';
+        return tb > ta ? 1 : -1;
+      });
+      if (sids.length === 0) {
+        list.innerHTML = '<div class="monitor-empty" style="height:200px;"><div class="icon">⬛</div><p>Waiting for attackers...</p></div>';
+        return;
+      }
+      list.innerHTML = sids.map(sid => {
+        const s = sessions[sid];
+        const isActive = sid === activeSession;
+        const isLive = s.status !== 'ended';
+        const type = (s.attacker_type || 'scanner').toLowerCase();
+        const risk = s.risk_score || 0;
+        const typeClass = type.includes('apt') ? 'tag-apt' : type.includes('bot') ? 'tag-bot' :
+          type.includes('human') ? 'tag-human' : 'tag-scanner';
+        const cmds = (s.commands || []).length;
+        const time = s.start_time ? (s.start_time.split('T')[1] || '').substring(0,8) : '';
+        return `<div class="session-card ${isActive ? 'active-sel' : ''} ${!isLive ? 'ended' : ''}" onclick="selectSession('${sid}')">
+          <div class="sc-header"><span class="sc-ip">${s.src_ip || '?'}</span><span class="sc-status ${isLive ? 'live' : 'dead'}"></span></div>
+          <div class="sc-meta">
+            <span class="tag ${typeClass}" style="font-size:var(--text-tiny);">${s.attacker_type || 'Unknown'}</span>
+            <span style="font-size:var(--text-tiny);font-family:var(--font-mono);color:${risk > 70 ? 'var(--red)' : risk > 40 ? 'var(--amber)' : 'var(--green)'};">RISK ${risk}</span>
+          </div>
+          <div class="sc-cmds">${cmds} cmds · ${time}</div>
+        </div>`;
+      }).join('');
+      document.getElementById('session-count').textContent = sids.length;
+      loadStats();
+    }
+
+    function selectSession(sid) {
+      stopReplay();
+      activeSession = sid;
+      loadSessionDetail(sid);
+      const s = sessions[sid];
+      document.getElementById('ti-sid').textContent = sid.substring(0, 20) + (sid.length > 20 ? '...' : '');
+      document.getElementById('ti-ip').textContent = s.src_ip || '?';
+      document.getElementById('ti-type').textContent = s.attacker_type || '?';
+      document.getElementById('ti-cmds').textContent = (s.commands || []).length;
+      const rEl = document.getElementById('ti-risk');
+      rEl.textContent = s.risk_score || 0;
+      rEl.style.color = s.risk_score > 70 ? 'var(--red)' : s.risk_score > 40 ? 'var(--amber)' : 'var(--green)';
+      document.getElementById('replay-btn').disabled = false;
+      document.getElementById('export-btn').disabled = false;
+      const term = document.getElementById('terminal');
+      term.innerHTML = '';
+      (s.commands || []).forEach(c => appendTermLine(c));
+      term.scrollTop = term.scrollHeight;
+      renderSidebar();
+    }
+
+    function appendTermLine(cmd) {
+      const term = document.getElementById('terminal');
+      const empty = term.querySelector('.monitor-empty');
+      if (empty) empty.remove();
+      const risk = cmd.risk_score || 0;
+      const rClass = risk > 70 ? 'hi-risk' : risk > 40 ? 'med-risk' : '';
+      const ts = cmd.timestamp ? (cmd.timestamp.split('T')[1] || '').substring(0,8) : '--:--:--';
+      const command = (cmd.command || cmd.cmd || '').replace(/</g, '&lt;');
+      const response = (cmd.response || '').replace(/</g, '&lt;');
+      const div = document.createElement('div');
+      div.className = 'term-entry';
+      div.innerHTML = `<span class="term-ts">[${ts}]</span><div class="term-body">
+        <div class="term-cmd ${rClass}"><span class="prompt">$</span> ${command}</div>
+        ${response ? `<div class="term-resp">${response.substring(0, 500)}</div>` : ''}</div>`;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function clearTerminal() {
+      document.getElementById('terminal').innerHTML =
+        `<div class="monitor-empty"><div class="icon">⬛</div><p>Terminal cleared</p></div>`;
+    }
+
+    function replaySession() {
+      if (!activeSession) return;
+      stopReplay();
+      const s = sessions[activeSession];
+      const cmds = s.commands || [];
+      if (cmds.length === 0) return;
+      document.getElementById('terminal').innerHTML = '';
+      const btn = document.getElementById('replay-btn');
+      btn.disabled = true; btn.innerHTML = '⟳ Replaying...';
+      let i = 0;
+      function next() {
+        if (i >= cmds.length) { stopReplay(); btn.innerHTML = '▶ Replay'; return; }
+        appendTermLine(cmds[i]); i++;
+        replayTimer = setTimeout(next, 400 + Math.random() * 300);
+      }
+      next();
+    }
+
+    function stopReplay() {
+      if (replayTimer) { clearTimeout(replayTimer); replayTimer = null; }
+      const btn = document.getElementById('replay-btn');
+      if (btn) { btn.disabled = (activeSession === null); btn.innerHTML = '▶ Replay'; }
+    }
+
+    function exportSession() {
+      if (!activeSession) return;
+      const s = sessions[activeSession];
+      const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `session_${activeSession.substring(0, 8)}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      Nexus.showToast('Session exported');
+    }
+
+    setInterval(loadStats, 5000);
+    setInterval(() => { if (!socket.connected) loadSessions(); }, 10000);
+
+    setTimeout(() => {
+      if (Object.keys(sessions).length === 0) {
+        for (let i = 0; i < 4; i++) {
+          const demo = Nexus.generateDemoSession();
+          const sid = 'demo-' + Date.now() + '-' + i;
+          sessions[sid] = {
+            session_id: sid, src_ip: demo.src_ip, attacker_type: demo.classification,
+            risk_score: demo.risk_score, status: 'active',
+            start_time: new Date(Date.now() - i * 60000).toISOString(), commands: [demo],
+          };
+        }
+        renderSidebar();
+        if (!activeSession) selectSession(Object.keys(sessions)[0]);
+      }
+    }, 8000);
+
+    console.log('%c▐═══════════════════════════════════▐', 'font-size:10px;color:#00f0ff;');
+    console.log('%c  HARVEST-X NEXUS — MONITOR', 'font-size:16px;font-weight:bold;color:#00f0ff;');
+    console.log('%c  Live Session Viewer — Active', 'font-size:12px;color:#00ff88;');
+    console.log('%c▐═══════════════════════════════════▐', 'font-size:10px;color:#00f0ff;');
+  </script>
+</body>
+</html>

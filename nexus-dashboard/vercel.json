@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/monitor", "destination": "/monitor.html" },
+    { "source": "/session", "destination": "/session.html" }
+  ],
+  "installCommand": "",
+  "buildCommand": "",
+  "outputDirectory": "."
+}
