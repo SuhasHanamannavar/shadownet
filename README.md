@@ -266,6 +266,12 @@ ShadowNet is built for:
 
 ---
 
+## 🎥 Demo Video
+
+Click the image below to watch the demo.
+
+[![SIDDHI Demo](https://img.youtube.com/vi/kPrSlSray3M/maxresdefault.jpg)](https://youtu.be/kPrSlSray3M)
+
 ## 📄 License
 
 MIT License — open for research, education, and defensive security use.
