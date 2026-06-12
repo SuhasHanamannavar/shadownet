@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: mirage_cowrie
+    restart: unless-stopped
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./cowrie/logs:/cowrie/cowrie-git/var/log/cowrie
+    networks:
+      - mirage-net
+
+  backend:
+    image: python:3.11
+    container_name: mirage_backend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+      - "2121:2121"
+    command: bash -c "pip install -r requirements.txt && python main.py"
+    networks:
+      - mirage-net
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+  dashboard:
+    image: python:3.11-alpine
+    container_name: mirage_dashboard
+    working_dir: /app/dashboard
+    volumes:
+      - ./dashboard:/app/dashboard
+    ports:
+      - "3000:3000"
+    command: python -m http.server 3000
+    networks:
+      - mirage-net
+
+networks:
+  mirage-net:
+    driver: bridge

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Admin Panel — CorpNet</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/rrweb@2.0.0-alpha.11/dist/rrweb.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;display:flex;min-height:100vh}
+.sidebar{width:220px;background:#1e293b;padding:24px 0;flex-shrink:0;border-right:1px solid #334155}
+.sidebar-logo{padding:0 20px 24px;font-weight:700;font-size:16px;color:#60a5fa;border-bottom:1px solid #334155}
+.sidebar-logo small{display:block;font-size:11px;font-weight:400;color:#64748b;margin-top:2px}
+.nav-item{padding:10px 20px;font-size:13px;color:#94a3b8;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px}
+.nav-item:hover,.nav-item.active{background:#273449;color:#e2e8f0}
+.nav-item .dot{width:6px;height:6px;border-radius:50%;background:#334155}
+.nav-item.active .dot{background:#3b82f6}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#1e293b;border-bottom:1px solid #334155;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar-left{font-size:14px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:16px;font-size:13px;color:#94a3b8}
+.badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171}
+.content{padding:24px;flex:1;overflow-y:auto}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px}
+.stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-val{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.stat-val.green{color:#4ade80}
+.stat-val.red{color:#f87171}
+.stat-val.blue{color:#60a5fa}
+.panel{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:20px}
+.panel-hdr{padding:14px 18px;border-bottom:1px solid #334155;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.panel-body{padding:18px}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:'JetBrains Mono',monospace}
+th{color:#64748b;font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid #334155}
+td{padding:8px 10px;border-bottom:1px solid #1e293b;color:#cbd5e1}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn-action{padding:5px 14px;border:1px solid #334155;background:transparent;color:#94a3b8;border-radius:5px;font-size:11px;cursor:pointer;transition:all .2s}
+.btn-action:hover{background:#273449;color:#e2e8f0}
+.alert{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#93c5fd;margin-bottom:16px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:10px;width:380px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:slideUp .2s ease-out}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-hdr{padding:14px 20px;border-bottom:1px solid #334155;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.modal-hdr.error{color:#f87171;background:rgba(239,68,68,.05)}
+.modal-hdr.success{color:#4ade80;background:rgba(34,197,94,.05)}
+.modal-body{padding:20px;font-size:13px;color:#cbd5e1;line-height:1.6}
+.modal-ftr{padding:12px 20px;border-top:1px solid #334155;text-align:right}
+.btn-close{padding:6px 16px;background:#334155;border:none;color:white;border-radius:6px;font-size:12px;cursor:pointer;transition:background .2s}
+.btn-close:hover{background:#475569}
+.console-section{display:none}
+.console-section.visible{display:block}
+.term-wrap{background:#000;border-radius:10px;border:1px solid #334155;overflow:hidden}
+.term-titlebar{background:#1a1a2e;padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #333}
+.term-dot{width:10px;height:10px;border-radius:50%}
+.term-dot.r{background:#ff5f57}.term-dot.y{background:#febc2e}.term-dot.g{background:#28c840}
+.term-title{margin-left:8px;font-size:11px;color:#888;font-family:'JetBrains Mono',monospace}
+.term-output{height:420px;overflow-y:auto;padding:14px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#e0e0e0;white-space:pre-wrap;word-break:break-all}
+.term-output::-webkit-scrollbar{width:5px}
+.term-output::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.term-line .prompt{color:#4ade80}
+.term-line .cmd{color:#e2e8f0}
+.term-line .resp{color:#94a3b8}
+.term-line .err{color:#f87171}
+.term-line .warn{color:#fbbf24}
+.term-line .info{color:#60a5fa}
+.term-input-row{display:flex;align-items:center;background:#0a0a15;padding:8px 14px;border-top:1px solid #222;gap:6px}
+.term-input-row .prompt-lbl{color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:13px;white-space:nowrap}
+.term-input-row input{flex:1;background:transparent;border:none;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;caret-color:#4ade80}
+.term-sysinfo{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.sysinfo-card{background:#111827;border:1px solid #1e293b;border-radius:8px;padding:12px}
+.sysinfo-card .si-lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.sysinfo-card .si-val{font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<!-- HONEYPOT ADMIN PANEL — attacker thinks they're in -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    CorpNet Admin
+    <small>v3.2.1 — Production</small>
+  </div>
+  <div class="nav-item active" onclick="showSection('dashboard')" id="nav-dash"><span class="dot"></span>Dashboard</div>
+  <div class="nav-item" onclick="window.location='/admin/database'"><span class="dot"></span>Database</div>
+  <div class="nav-item" onclick="execAction('open_users_module')"><span class="dot"></span>Users</div>
+  <div class="nav-item" onclick="showSection('console')" id="nav-console"><span class="dot"></span>Server Console</div>
+  <div class="nav-item" onclick="execAction('download_system_logs')"><span class="dot"></span>System Logs</div>
+  <div class="nav-item" onclick="execAction('view_network_map')"><span class="dot"></span>Network</div>
+  <div class="nav-item" onclick="execAction('open_settings')"><span class="dot"></span>Settings</div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-left">Admin Dashboard</span>
+    <div class="topbar-right">
+      <span>Connected: <b>{{ server_ip }}</b></span>
+      <span class="badge badge-green">ONLINE</span>
+      <span>{{ fake_user }}@corpnet.internal</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="alert">
+      Welcome back, <b>{{ fake_user }}</b>. Last login: {{ "2024-05-03 03:12:44" }} from 192.168.1.{{ range(10,50)|random }}
+    </div>
+
+    <div class="grid">
+      <div class="stat-card"><div class="stat-label">Active Users</div><div class="stat-val blue">247</div></div>
+      <div class="stat-card"><div class="stat-label">DB Records</div><div class="stat-val">84,291</div></div>
+      <div class="stat-card"><div class="stat-label">CPU Load</div><div class="stat-val green">12%</div></div>
+      <div class="stat-card"><div class="stat-label">Failed Logins</div><div class="stat-val red">0</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hdr">
+        <span>User Accounts</span>
+        <button class="btn-action" onclick="execAction('export_users')">Export CSV</button>
+      </div>
+      <div class="panel-body">
+        <table>
+          <tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Password Hash</th><th>Action</th></tr>
+          <tr><td>1</td><td>admin</td><td>admin@corp.internal</td><td>superadmin</td><td>$2b$12$fakeHashA1B2C3D4E5F6</td><td><button class="btn-action" onclick="execAction('reset_pw_1')">Reset PW</button></td></tr>
+          <tr><td>2</td><td>j.smith</td><td>j.smith@corp.com</td><td>manager</td><td>$2b$12$fakeHashG7H8I9J0K1L2</td><td><button class="btn-action" onclick="execAction('reset_pw_2')">Reset PW</button></td></tr>
+          <tr><td>3</td><td>dev_api</td><td>devops@corp.com</td><td>developer</td><td>$2b$12$fakeHashM3N4O5P6Q7R8</td><td><button class="btn-action" onclick="execAction('reset_pw_3')">Reset PW</button></td></tr>
+          <tr><td>4</td><td>jenkins</td><td>ci@corp.internal</td><td>service</td><td>$2b$12$fakeHashS9T0U1V2W3X4</td><td><button class="btn-action" onclick="execAction('reset_pw_4')">Reset PW</button></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hdr"><span>System Configuration</span></div>
+      <div class="panel-body">
+        <table>
+          <tr><th>Key</th><th>Value</th></tr>
+          <tr><td>DB_HOST</td><td>db-prod-01.corp.internal:5432</td></tr>
+          <tr><td>DB_NAME</td><td>corpnet_production</td></tr>
+          <tr><td>DB_USER</td><td>db_admin</td></tr>
+          <tr><td>DB_PASS</td><td>Pr0d_P@ssw0rd_2024!</td></tr>
+          <tr><td>AWS_ACCESS_KEY</td><td>AKIAIOSFODNN7EXAMPLE</td></tr>
+          <tr><td>AWS_SECRET_KEY</td><td>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</td></tr>
+          <tr><td>JWT_SECRET</td><td>sup3r_s3cr3t_jwt_k3y_n0_t0uch!</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Server Console Section -->
+    <div class="console-section" id="console-section">
+      <div class="term-sysinfo">
+        <div class="sysinfo-card"><div class="si-lbl">Operating System</div><div class="si-val" style="color:#4ade80">Linux Ubuntu 18.04.6 LTS</div></div>
+        <div class="sysinfo-card"><div class="si-lbl">Server Uptime</div><div class="si-val" id="uptime-val" style="color:#60a5fa">142d 07:23:41</div></div>
+        <div class="sysinfo-card"><div class="si-lbl">Kernel</div><div class="si-val" style="color:#fbbf24">5.4.0-150-generic</div></div>
+      </div>
+      <div class="term-wrap">
+        <div class="term-titlebar">
+          <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+          <span class="term-title">admin@corpnet-prod-01 ~ (bash)</span>
+        </div>
+        <div class="term-output" id="term-output"></div>
+        <div class="term-input-row">
+          <span class="prompt-lbl">admin@server:~$</span>
+          <input type="text" id="term-input" autocomplete="off" spellcheck="false" placeholder="Type a command...">
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="modal-overlay" id="sys-modal">
+  <div class="modal">
+    <div class="modal-hdr" id="modal-title">System Alert</div>
+    <div class="modal-body" id="modal-msg"></div>
+    <div class="modal-ftr">
+      <button class="btn-close" onclick="document.getElementById('sys-modal').style.display='none'">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── rrweb ──
+try { let re=[];rrweb.record({emit(e){re.push(e);if(re.length>5){fetch('http://127.0.0.1:8000/api/rrweb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:'{{ mirage_sid }}',events:re})}).catch(()=>{});re=[];}}}); } catch(e){}
+
+// ── Section Switching ──
+function showSection(s){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const con=document.getElementById('console-section');
+  if(s==='console'){
+    document.getElementById('nav-console').classList.add('active');
+    con.classList.add('visible');
+    document.querySelectorAll('.grid,.panel,.alert').forEach(el=>el.style.display='none');
+    document.getElementById('term-input').focus();
+  } else {
+    document.getElementById('nav-dash').classList.add('active');
+    con.classList.remove('visible');
+    document.querySelectorAll('.grid,.panel,.alert').forEach(el=>el.style.display='');
+  }
+}
+
+// ── Modal ──
+function execAction(a){
+  fetch('/admin',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action='+a})
+    .then(r=>r.json()).then(d=>{
+      const m=document.getElementById('sys-modal'),t=document.getElementById('modal-title'),msg=document.getElementById('modal-msg');
+      t.className=d.status==='error'?'modal-hdr error':'modal-hdr success';
+      t.innerHTML=d.status==='error'?'⚠️ System Error':'✓ Action Successful';
+      msg.innerText=d.message; m.style.display='flex';
+    });
+}
+
+// ── Fake Terminal ──
+const RESP={
+  'whoami':'admin',
+  'id':'uid=0(admin) gid=0(root) groups=0(root),27(sudo)',
+  'hostname':'corpnet-prod-01',
+  'uname -a':'Linux corpnet-prod-01 5.4.0-150-generic #167-Ubuntu SMP x86_64 GNU/Linux',
+  'uname':'Linux', 'pwd':'/home/admin',
+  'date':()=>new Date().toString(),
+  'uptime':' 07:23 up 142 days, load average: 0.12, 0.08, 0.03',
+  'cat /etc/passwd':'root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nadmin:x:1000:1000:Admin:/home/admin:/bin/bash\nj.smith:x:1001:1001::/home/j.smith:/bin/bash\njenkins:x:1003:1003::/home/jenkins:/bin/bash\nmysql:x:27:27:MySQL Server:/var/lib/mysql:/bin/false',
+  'cat /etc/shadow':'__ERR__Permission denied',
+  'cat /etc/hosts':'127.0.0.1\tlocalhost\n10.0.1.5\tdb-prod-01.corp.internal\n10.0.1.10\tapp-prod-01.corp.internal',
+  'cat notes.txt':'TODO: Rotate DB password before EOQ\nBackup cron failing since Tuesday\nNew dev onboarding: grant j.smith sudo by Friday',
+  'cat .bash_history':'__WARN__ssh admin@db-prod-01.corp.internal\nmysql -u root -p\npg_dump corpnet_production > /tmp/backup.sql\nsudo systemctl restart nginx\ncurl http://169.254.169.254/latest/meta-data/',
+  'cat deploy.sh':'#!/bin/bash\ncd /var/www/corpnet\ngit pull origin main\nnpm install && npm run build\nsudo systemctl restart corpnet-app',
+  'ifconfig':'eth0: flags=4163<UP,BROADCAST,RUNNING>  mtu 1500\n        inet 10.0.1.15  netmask 255.255.255.0\n        ether 02:42:ac:11:00:01\n\nlo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536\n        inet 127.0.0.1  netmask 255.0.0.0',
+  'netstat -tulpn':'Proto  Local Address     State     PID/Program\ntcp    0.0.0.0:22        LISTEN    892/sshd\ntcp    0.0.0.0:80        LISTEN    1024/nginx\ntcp    0.0.0.0:443       LISTEN    1024/nginx\ntcp    0.0.0.0:3306      LISTEN    1156/mysqld\ntcp    0.0.0.0:5432      LISTEN    1203/postgres',
+  'ps aux':'USER   PID  %CPU %MEM COMMAND\nroot     1   0.0  0.1 /sbin/init\nroot   892   0.0  0.1 /usr/sbin/sshd\nwww   1024   0.1  0.3 nginx: worker\nmysql 1156   0.3  2.1 /usr/sbin/mysqld\nadmin 4521   0.0  0.1 -bash',
+  'env':'__WARN__HOME=/home/admin\nDB_HOST=db-prod-01.corp.internal:5432\nDB_PASS=Pr0d_P@ssw0rd_2024!\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\nAWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE\nJWT_SECRET=sup3r_s3cr3t_jwt_k3y_n0_t0uch!',
+  'w':' 07:24 up 142 days, 2 users\nUSER     TTY   FROM              IDLE  WHAT\nadmin    pts/0 192.168.1.23      0.00s -bash\nj.smith  pts/1 10.0.2.44         39m  vim app.py',
+  'df -h':'Filesystem  Size  Used Avail Use% Mounted\n/dev/sda1    50G   32G   16G  67% /\n/dev/sdb1   200G  143G   48G  75% /var/lib/mysql',
+  'free -h':'          total  used  free  available\nMem:      7.8Gi 3.2Gi 1.1Gi 4.1Gi\nSwap:     2.0Gi  64Mi 1.9Gi',
+  'help':'__INFO__Available: ls, cat, whoami, id, hostname, uname, pwd, date, uptime, ps, env, w, df, free, ifconfig, netstat, find, grep, clear, help',
+  'sudo su':'__ERR__[sudo] password for admin: \nSorry, try again.\nadmin is not in the sudoers file. This incident will be reported.',
+  'rm -rf /':'__ERR__rm: use --no-preserve-root to override this failsafe',
+  'clear':'__CLEAR__',
+  'exit':'logout\nConnection to corpnet-prod-01 closed.'
+};
+const FS={'~':['Desktop','Documents','Downloads','.bash_history','.ssh','backup.tar.gz','notes.txt','deploy.sh'],'/':['bin','boot','dev','etc','home','root','tmp','usr','var'],'/etc':['passwd','shadow','hosts','nginx','mysql','crontab'],'/root':['.bash_history','.ssh','.pgpass','credentials.bak','id_rsa'],'.ssh':['authorized_keys','id_rsa','id_rsa.pub','known_hosts']};
+const SUS=['rm','wget','curl','chmod','nc','python','/dev/tcp','base64','eval','sudo','shadow','ssh-keygen','kill','dd','iptables'];
+
+let cmdHist=[],hIdx=-1,cwd='~';
+const tOut=document.getElementById('term-output'), tIn=document.getElementById('term-input');
+
+function tP(h){tOut.innerHTML+=h;tOut.scrollTop=tOut.scrollHeight;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function run(raw){
+  const cmd=raw.trim(); if(!cmd) return;
+  cmdHist.unshift(cmd); hIdx=-1;
+  const isSus=SUS.some(s=>cmd.toLowerCase().includes(s));
+  tP(`<div class="term-line"><span class="prompt">admin@server:${cwd}$ </span><span class="${isSus?'warn':'cmd'}">${esc(cmd)}</span></div>`);
+  
+  fetch('/honeypot-command',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cmd:cmd, cwd:cwd})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      let out = data.response;
+      let cls = data.style_class || 'resp';
+      cwd = data.cwd || cwd;
+      
+      if (out === '__CLEAR__') {
+        tOut.innerHTML = '';
+        return;
+      }
+      if (out) {
+        tP(`<div class="term-line"><span class="${cls}">${esc(out)}</span></div>`);
+      }
+    } else {
+      throw new Error("Invalid status");
+    }
+  })
+  .catch(() => {
+    setTimeout(()=>{
+      let r=RESP[cmd], cls='resp';
+      if(!r&&(cmd==='ls'||cmd.startsWith('ls '))){
+        const f=FS[cwd]||FS['~']; r=cmd.includes('-l')?'total '+f.length*4+'\n'+f.map(x=>(x.includes('.')?'-rw-r--r--':'drwxr-xr-x')+'  1 admin admin  '+String(Math.floor(Math.random()*50000)).padStart(6)+' May  3 12:05  '+x).join('\n'):f.join('  ');
+      }
+      if(!r&&cmd.startsWith('cd ')){const t=cmd.substring(3).trim();if(FS[t]||t==='~'||t==='/'){cwd=t;r='';}else{r='__ERR__-bash: cd: '+t+': No such file or directory';}}
+      if(!r&&cmd.startsWith('cat ')){const f=cmd.substring(4).trim();r=f.includes('id_rsa')?'__WARN__-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEA...\n-----END OPENSSH PRIVATE KEY-----':'__ERR__cat: '+f+': No such file or directory';}
+      if(!r&&cmd.startsWith('find ')){r='__WARN__/root/.ssh/id_rsa\n/root/credentials.bak\n/var/www/corpnet/.env\n/tmp/backup.sql';}
+      if(!r&&cmd.startsWith('grep ')){r='__WARN__/etc/corpnet/app.conf:DB_PASSWORD=Pr0d_P@ssw0rd_2024!\n/var/www/.env:AWS_SECRET=wJalrXUtnFEMI...';}
+      if(!r){r='__ERR__-bash: '+cmd.split(' ')[0]+': command not found';}
+      let out=typeof r==='function'?r():r;
+      if(out==='__CLEAR__'){tOut.innerHTML='';return;}
+      if(out.startsWith('__ERR__')){out=out.substring(7);cls='err';}
+      else if(out.startsWith('__WARN__')){out=out.substring(8);cls='warn';}
+      else if(out.startsWith('__INFO__')){out=out.substring(8);cls='info';}
+      if(out) tP(`<div class="term-line"><span class="${cls}">${esc(out)}</span></div>`);
+    },120+Math.random()*250);
+  });
+}
+
+tIn.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){run(tIn.value);tIn.value='';}
+  if(e.key==='ArrowUp'){e.preventDefault();if(cmdHist[hIdx+1]!==undefined){hIdx++;tIn.value=cmdHist[hIdx];}}
+  if(e.key==='ArrowDown'){e.preventDefault();if(hIdx>0){hIdx--;tIn.value=cmdHist[hIdx];}else{hIdx=-1;tIn.value='';}}
+});
+
+tP('<div class="term-line"><span class="info">CorpNet Production Server — Ubuntu 18.04.6 LTS</span></div>');
+tP('<div class="term-line"><span class="info">Last login: Mon May 5 07:20:12 2025 from 192.168.1.23</span></div>');
+tP('<div class="term-line"><span style="color:#4ade80">Access Granted — Welcome admin</span></div>');
+tP('<div class="term-line"><span class="resp">Type "help" for available commands.</span></div><br>');
+
+let uS=142*86400+7*3600+23*60+41;
+setInterval(()=>{uS++;const d=Math.floor(uS/86400),h=Math.floor((uS%86400)/3600),m=Math.floor((uS%3600)/60),s=uS%60;const el=document.getElementById('uptime-val');if(el)el.textContent=`${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;},1000);
+</script>
+</body>
+</html>

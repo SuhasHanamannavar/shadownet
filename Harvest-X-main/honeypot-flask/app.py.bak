@@ -1,0 +1,426 @@
+"""
+app.py
+======
+MIRAGE Honeypot — Flask Gateway
+
+Flow:
+  Every incoming request → extract 6 ML features
+  → ML model predicts 0 (normal) or 1 (attack)
+  → Normal users see real pages
+  → Attackers see convincing fake pages (same URL)
+  → All attacks logged to MongoDB
+
+Run:  python app.py
+"""
+
+import os
+import re
+import time
+import json
+import random
+import string
+import logging
+from datetime import datetime
+from functools import wraps
+
+import joblib
+import numpy as np
+from flask import (Flask, request, render_template, session,
+                   redirect, url_for, jsonify, make_response)
+import db
+import real_db
+
+# ── App setup ──────────────────────────────────────────────────────────────
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s] %(levelname)s %(message)s')
+log = logging.getLogger(__name__)
+
+# ── Load ML model ──────────────────────────────────────────────────────────
+MODEL_PATH = "model.pkl"
+try:
+    model = joblib.load(MODEL_PATH)
+    log.info(f"[Model] Loaded from {MODEL_PATH}")
+except FileNotFoundError:
+    model = None
+    log.warning("[Model] model.pkl not found — run model_trainer.py first. Falling back to rule-based detection.")
+
+# ── Request frequency tracker (brute force detection) ─────────────────────
+_request_times: dict[str, list] = {}   # ip -> [timestamps]
+BRUTE_WINDOW  = 60   # seconds
+BRUTE_LIMIT   = 15   # max requests per window
+
+# ── Failed login attempt tracker ───────────────────────────────────────────
+_failed_logins: dict[str, int] = {}   # ip -> failed attempt count
+FAILED_LOGIN_LIMIT = 3               # failed attempts before honeypot kicks in
+
+# ── SQL / XSS / Traversal patterns ────────────────────────────────────────
+SQL_RE   = re.compile(
+    r"(select|insert|update|delete|drop|union|exec|--|%27|'|;|1=1|or\s+1|benchmark|sleep\s*\()",
+    re.IGNORECASE)
+XSS_RE   = re.compile(
+    r"(<script|javascript:|onerror=|alert\s*\(|onload=|<img|<svg|eval\(|document\.cookie)",
+    re.IGNORECASE)
+TRAV_RE  = re.compile(r"(\.\./|\.\.\\|%2e%2e|/etc/passwd|/windows/system32)",
+                      re.IGNORECASE)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Feature Extraction
+# ══════════════════════════════════════════════════════════════════════════
+
+def extract_features(req) -> tuple[list, str]:
+    """
+    Extract 6 numerical features from a Flask request object.
+    Returns (feature_list, detected_attack_type_string).
+    """
+    path    = req.path or ""
+    args    = req.query_string.decode("utf-8", errors="ignore")
+    body    = req.get_data(as_text=True) or ""
+    payload = args + " " + body
+
+    f1_path_len    = len(path)
+    f2_payload_len = len(payload)
+    f3_sql         = 1 if SQL_RE.search(payload) or SQL_RE.search(path) else 0
+    f4_xss         = 1 if XSS_RE.search(payload) or XSS_RE.search(path) else 0
+    f5_traversal   = 1 if TRAV_RE.search(path) or TRAV_RE.search(payload) else 0
+    f6_params      = len(req.args) + len(req.form)
+
+    features = [f1_path_len, f2_payload_len, f3_sql, f4_xss, f5_traversal, f6_params]
+
+    # Determine descriptive attack type for logging
+    if f3_sql:   attack_type = "sql_injection"
+    elif f4_xss: attack_type = "xss"
+    elif f5_traversal: attack_type = "path_traversal"
+    else:        attack_type = "attack"
+
+    return features, attack_type
+
+
+def is_brute_force(ip: str) -> bool:
+    """Return True if IP exceeds BRUTE_LIMIT requests in BRUTE_WINDOW seconds."""
+    now = time.time()
+    times = _request_times.setdefault(ip, [])
+    times.append(now)
+    # Prune old entries
+    _request_times[ip] = [t for t in times if now - t < BRUTE_WINDOW]
+    return len(_request_times[ip]) > BRUTE_LIMIT
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Gateway Middleware
+# ══════════════════════════════════════════════════════════════════════════
+
+def classify_request() -> bool:
+    """
+    Classify the current request.
+    Returns True if it's an ATTACK, False if normal.
+    Sets session['is_attacker'] for sticky session behaviour.
+    """
+    # Bypass for static assets and internal endpoints
+    if request.path.startswith('/static') or request.path.startswith('/honeypot-dashboard'):
+        return False
+
+    ip = request.remote_addr
+
+    # 1. Brute force check
+    if is_brute_force(ip):
+        session['is_attacker'] = True
+        return True
+
+    # 2. Sticky session — once attacker, always attacker this session
+    if session.get('is_attacker'):
+        return True
+
+    # 3. ML model prediction
+    features, attack_type = extract_features(request)
+
+    if model:
+        pred = int(model.predict(np.array(features).reshape(1, -1))[0])
+    else:
+        # Rule-based fallback if model not loaded
+        pred = 1 if any([features[2], features[3], features[4]]) else 0
+
+    if pred == 1:
+        session['is_attacker'] = True
+        _, attack_type = extract_features(request)
+        body = request.get_data(as_text=True)
+        db.log_attack(
+            ip=ip,
+            path=request.path,
+            method=request.method,
+            headers=dict(request.headers),
+            body=body,
+            attack_type=attack_type,
+            features=features,
+            prediction=pred,
+        )
+        log.warning(f"[ATTACK] {ip} — {attack_type} — {request.method} {request.path}")
+        return True
+
+    return False
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ROUTES
+# ══════════════════════════════════════════════════════════════════════════
+
+@app.route("/")
+def index():
+    if classify_request():
+        return render_template("fake_index.html")
+    return render_template("real_index.html")
+
+
+# ── Login ──────────────────────────────────────────────────────────────────
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    is_attack = classify_request()
+    ip = request.remote_addr
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        # STRONG FACTOR: Explicit SQL Injection check in login fields
+        sql_patterns = [r"' OR 1=1", r"UNION SELECT", r"--", r"/\*", r"; DROP"]
+        if any(re.search(p, username, re.IGNORECASE) for p in sql_patterns) or \
+           any(re.search(p, password, re.IGNORECASE) for p in sql_patterns):
+            is_attack = True
+            session['is_attacker'] = True
+
+        # Already flagged as attacker → accept and redirect to fake panel
+        if is_attack:
+            time.sleep(random.uniform(0.5, 1.5))
+            import time as tmod
+            mirage_sid = f"web_{ip.replace('.','_')}_{int(tmod.time())}"
+            session['mirage_sid'] = mirage_sid
+            db.log_attack(
+                ip=ip, path=request.path, method=request.method,
+                headers=dict(request.headers),
+                body=f"username={username}&password={password}",
+                attack_type="credential_harvest",
+                features=extract_features(request)[0], prediction=1,
+                session_id=mirage_sid
+            )
+            session['fake_user'] = username
+            _failed_logins[ip] = 0   # reset counter
+            return redirect(url_for("admin"))
+
+        # Real login — check against SQLite DB
+        user_record = real_db.verify_user(username, password)
+        if user_record:
+            _failed_logins[ip] = 0
+            session['user'] = user_record['username']
+            session['role'] = user_record['role']
+            return redirect(url_for("real_dashboard"))
+
+        # Wrong credentials — increment failure counter
+        _failed_logins[ip] = _failed_logins.get(ip, 0) + 1
+        attempts = _failed_logins[ip]
+        log.warning(f"[LOGIN] Failed attempt {attempts}/{FAILED_LOGIN_LIMIT} from {ip} — user='{username}'")
+
+        if attempts >= FAILED_LOGIN_LIMIT:
+            # Silently switch to honeypot mode
+            session['is_attacker'] = True
+            session['fake_user'] = username
+            import time as tmod
+            mirage_sid = f"web_{ip.replace('.','_')}_{int(tmod.time())}"
+            session['mirage_sid'] = mirage_sid
+            db.log_attack(
+                ip=ip, path=request.path, method=request.method,
+                headers=dict(request.headers),
+                body=f"username={username}&password={password}",
+                attack_type="brute_force",
+                features=extract_features(request)[0], prediction=1,
+                session_id=mirage_sid
+            )
+            log.warning(f"[HONEYPOT] {ip} exceeded {FAILED_LOGIN_LIMIT} failed logins — redirecting to fake panel")
+            # Show a fake 'Login successful' to keep attacker engaged
+            time.sleep(random.uniform(0.8, 1.5))
+            return redirect(url_for("admin"))
+
+        # Still below threshold — show error with attempts remaining
+        remaining = FAILED_LOGIN_LIMIT - attempts
+        error = f"Invalid credentials. {remaining} attempt{'s' if remaining > 1 else ''} remaining."
+        return render_template("real_login.html", error=error, attempts=attempts)
+
+    if is_attack:
+        return render_template("fake_login.html")
+    return render_template("real_login.html")
+
+
+# ── Real pages (shown to normal users) ────────────────────────────────────
+@app.route("/dashboard")
+def real_dashboard():
+    if session.get('is_attacker'):
+        return redirect(url_for("admin"))
+    if not session.get('user'):
+        return redirect(url_for("login"))
+    user_info = real_db.get_user_by_username(session['user'])
+    role = user_info['role'] if user_info else 'Unknown'
+    return render_template("real_dashboard.html", user=session['user'], role=role)
+
+
+# ── Honeypot admin (attackers land here) ──────────────────────────────────
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+    classify_request()
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        mirage_sid = session.get('mirage_sid')
+        db.log_attack(
+            ip=request.remote_addr,
+            path="/admin",
+            method="POST",
+            headers=dict(request.headers),
+            body=request.get_data(as_text=True),
+            attack_type="admin_panel_interaction",
+            features=extract_features(request)[0],
+            prediction=1,
+            session_id=mirage_sid
+        )
+        time.sleep(random.uniform(0.3, 1.0))
+        
+        msg = f"Action '{action}' executed."
+        if action == "open_users_module":
+            msg = "Error 403: Module 'Users' is currently locked for maintenance by root."
+        elif action == "download_system_logs":
+            msg = "Generating logs... Error: Insufficient storage quota in /var/log/."
+        elif action == "view_network_map":
+            msg = "Permission Denied: Your current role cannot view topology maps."
+        elif action == "open_settings":
+            msg = "Settings module is offline. Please contact IT support."
+        elif action.startswith("reset_pw_"):
+            msg = "Password reset link generated and sent to the user's primary email address."
+        elif action == "export_users":
+            msg = "Export initiated. The CSV file will be emailed to you shortly."
+            
+        status_val = "error" if ("Error" in msg or "Denied" in msg) else "success"
+        return jsonify({"status": status_val, "message": msg})
+    return render_template("fake_admin.html",
+                           fake_user=session.get('fake_user', 'admin'),
+                           server_ip="192.168.1." + str(random.randint(10, 50)),
+                           mirage_sid=session.get('mirage_sid', ''))
+
+# ── Honeypot Terminal Command (Server Console) ─────────────────────────────
+@app.route("/honeypot-command", methods=["POST"])
+def honeypot_command():
+    """Receive commands typed in the fake Server Console and log them."""
+    data = request.get_json(silent=True) or {}
+    cmd = data.get("cmd", "")
+    ip = request.remote_addr
+    mirage_sid = session.get('mirage_sid')
+
+    log.warning(f"[CONSOLE] {ip} executed: {cmd}")
+
+    db.log_attack(
+        ip=ip, path="/admin/console", method="POST",
+        headers=dict(request.headers),
+        body=f"cmd={cmd}",
+        attack_type="terminal_command",
+        features=extract_features(request)[0], prediction=1,
+        session_id=mirage_sid
+    )
+    return jsonify({"status": "ok"})
+
+
+# ── Fake database panel ─────────────────────────────────────────────────
+@app.route("/admin/database", methods=["GET", "POST"])
+def fake_database():
+    classify_request()
+    if request.method == "POST":
+        query = request.form.get("query", "")
+        db.log_attack(
+            ip=request.remote_addr, path="/admin/database", method="POST",
+            headers=dict(request.headers), body=f"query={query}",
+            attack_type="fake_db_query", features=extract_features(request)[0], prediction=1,
+            session_id=session.get('mirage_sid')
+        )
+        time.sleep(random.uniform(0.2, 0.8))
+        # Return convincing fake DB result
+        fake_rows = [
+            {"id": i, "username": f"user_{i:03d}",
+             "email": f"user{i}@corp.internal",
+             "password": "".join(random.choices(string.hexdigits, k=32))}
+            for i in range(1, random.randint(4, 12))
+        ]
+        return jsonify({"rows": fake_rows, "affected": len(fake_rows), "time": "0.003s"})
+    return render_template("fake_db.html")
+
+
+# ── Honeypot API (catches automated scanners) ─────────────────────────────
+@app.route("/api/users", methods=["GET", "POST"])
+@app.route("/api/admin", methods=["GET", "POST"])
+@app.route("/wp-admin", methods=["GET", "POST"])
+@app.route("/phpmyadmin", methods=["GET", "POST"])
+@app.route("/.env", methods=["GET"])
+@app.route("/config.php", methods=["GET"])
+def honeypot_trap():
+    """Trap common scanner targets — always logs as attack."""
+    ip      = request.remote_addr
+    session['is_attacker'] = True
+    mirage_sid = session.get('mirage_sid')
+    if not mirage_sid:
+        import time as tmod
+        mirage_sid = f"web_{ip.replace('.','_')}_{int(tmod.time())}"
+        session['mirage_sid'] = mirage_sid
+
+    features, atype = extract_features(request)
+    db.log_attack(ip=ip, path=request.path, method=request.method,
+                  headers=dict(request.headers), body=request.get_data(as_text=True),
+                  attack_type=f"scanner_{atype}", features=features, prediction=1, session_id=mirage_sid)
+    log.warning(f"[TRAP] {ip} hit scanner trap: {request.path}")
+    # Serve convincing fake responses
+    if ".env" in request.path:
+        return make_response(
+            "APP_KEY=base64:fakekey1234\nDB_PASSWORD=P@ssw0rd!\nAWS_SECRET=FAKE_SECRET",
+            200, {"Content-Type": "text/plain"}
+        )
+    return render_template("fake_admin.html", fake_user="admin", server_ip="10.0.0.1")
+
+
+# ── Monitoring Dashboard ──────────────────────────────────────────────────
+@app.route("/honeypot-dashboard")
+def honeypot_dashboard():
+    """Your private monitoring dashboard — shows all attacks."""
+    return render_template("dashboard.html")
+
+@app.route("/honeypot-dashboard/api/logs")
+def api_logs():
+    return jsonify(db.get_recent_logs(50))
+
+@app.route("/honeypot-dashboard/api/stats")
+def api_stats():
+    return jsonify(db.get_stats())
+
+
+# ── Catch-all: intercept everything else ─────────────────────────────────
+@app.route("/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE"])
+def catch_all(subpath):
+    is_attack = classify_request()
+    if is_attack:
+        mirage_sid = session.get('mirage_sid')
+        if not mirage_sid:
+            import time as tmod
+            mirage_sid = f"web_{request.remote_addr.replace('.','_')}_{int(tmod.time())}"
+            session['mirage_sid'] = mirage_sid
+
+        db.log_attack(ip=request.remote_addr, path=f"/{subpath}",
+                      method=request.method, headers=dict(request.headers),
+                      body=request.get_data(as_text=True),
+                      attack_type="unknown_path", features=extract_features(request)[0], prediction=1, session_id=mirage_sid)
+        return render_template("fake_admin.html",
+                               fake_user=session.get('fake_user', 'admin'),
+                               server_ip="10.0.0." + str(random.randint(1, 50)),
+                               mirage_sid=mirage_sid)
+    return render_template("real_index.html")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    real_db.init_db()
+    log.info("Starting MIRAGE Honeypot Flask Server on http://localhost:5000")
+    app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)

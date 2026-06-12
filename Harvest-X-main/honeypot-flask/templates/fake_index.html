@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Welcome — CorpNet Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f4f5f7;color:#1f2937;min-height:100vh}
+nav{background:#1e40af;color:white;padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:700;font-size:18px}
+nav a{color:rgba(255,255,255,.85);text-decoration:none;margin-left:20px;font-size:14px}
+.hero{background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;padding:80px 32px;text-align:center}
+.hero h1{font-size:42px;font-weight:700;margin-bottom:12px}
+.hero p{font-size:18px;opacity:.9;margin-bottom:32px}
+.btn{display:inline-block;background:white;color:#1e40af;padding:12px 32px;border-radius:8px;font-weight:600;text-decoration:none}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1100px;margin:48px auto;padding:0 32px}
+.card{background:white;border-radius:12px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card h3{font-size:16px;font-weight:600;margin-bottom:8px;color:#1e40af}
+.card p{font-size:14px;color:#6b7280;line-height:1.6}
+footer{text-align:center;padding:24px;color:#9ca3af;font-size:13px;border-top:1px solid #e5e7eb;margin-top:40px}
+</style>
+</head>
+<body>
+<!-- HONEYPOT INDEX — identical to real, but this user is being tracked -->
+<nav>
+  <span class="logo">CorpNet</span>
+  <div><a href="/">Home</a><a href="/login">Login</a><a href="/about">About</a></div>
+</nav>
+<div class="hero">
+  <h1>Enterprise Resource Portal</h1>
+  <p>Secure access to company resources, tools and applications</p>
+  <a href="/login" class="btn">Sign In to Portal</a>
+</div>
+<div class="cards">
+  <div class="card"><h3>Secure Access</h3><p>256-bit SSL encrypted connections with multi-factor authentication support.</p></div>
+  <div class="card"><h3>Unified Dashboard</h3><p>Access all your business applications from a single sign-on portal.</p></div>
+  <div class="card"><h3>24/7 Monitoring</h3><p>Enterprise-grade uptime and security monitoring across all services.</p></div>
+</div>
+<footer>© 2024 CorpNet Internal Portal — Authorized use only</footer>
+</body>
+</html>

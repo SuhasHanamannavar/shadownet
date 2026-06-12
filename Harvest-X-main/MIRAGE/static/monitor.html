@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MIRAGE Live Monitor</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: #00ff9c;
+            font-family: monospace;
+            padding: 20px;
+        }
+        #logs {
+            white-space: pre-wrap;
+            background: black;
+            padding: 10px;
+            border-radius: 8px;
+            height: 500px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+<body>
+
+<h2>🔥 MIRAGE Live Attacker Feed</h2>
+<div id="logs"></div>
+
+<script>
+    const ws = new WebSocket("ws://" + location.host + "/ws/feed");
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        const logs = document.getElementById("logs");
+
+        logs.innerText += JSON.stringify(data, null, 2) + "\n\n";
+        logs.scrollTop = logs.scrollHeight;
+    };
+</script>
+
+</body>
+</html>

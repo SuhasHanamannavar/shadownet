@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: cowrie
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./logs:/cowrie/cowrie-git/var/log/cowrie
+      - ./cowrie/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg
+    restart: unless-stopped
+
+  flask_http:
+    build: ./flask_http
+    container_name: flask_http
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    user: root
+
+  ftp_server:
+    build: ./ftp_server
+    container_name: ftp_server
+    ports:
+      - "2121:2121"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    user: root

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chameleon Adaptive Honeypot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(22, 30, 46, 0.8);
+            --border-color: #2d3748;
+            --text-main: #e2e8f0;
+            --text-muted: #a0aec0;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 400px);
+        }
+
+        h1, h2 {
+            margin-top: 0;
+            font-weight: 600;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge::before {
+            content: '';
+            display: block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel-header {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .attacker-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        .attacker-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+        }
+
+        .attacker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .ip-address {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        .threat-score {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .details-label {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .tag {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .kill-chain-bar {
+            margin-top: 15px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .kill-chain-progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-yellow), var(--accent-red));
+            width: 0%;
+            transition: width 1s ease-in-out;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Chameleon Deception Engine</h1>
+            <div style="color: var(--text-muted); font-size: 14px;">Adaptive Threat Intelligence Platform</div>
+        </div>
+        <div class="status-badge">System Active</div>
+    </header>
+
+    <div class="grid">
+        <div class="panel">
+            <div class="panel-header">
+                <span>Active Attackers Profile</span>
+                <span style="font-size: 12px; color: var(--text-muted);">Real-time Session Analysis</span>
+            </div>
+            <div id="attackers-container">
+                <div style="color: var(--text-muted); text-align: center; padding: 20px;">Waiting for threat actors...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span>Live Threat Feed</span>
+                <span style="font-size: 12px; color: var(--text-muted);">Multi-Service Correlation</span>
+            </div>
+            <div style="overflow-y: auto; max-height: 600px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>IP Address</th>
+                            <th>Service</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-container">
+                        <!-- Events populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getKillChainWidth(chain) {
+            switch(chain) {
+                case 'Recon': return '30%';
+                case 'Privilege Attempt': return '60%';
+                case 'Payload Execution': return '100%';
+                default: return '10%';
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                // Render Attackers
+                const attackersContainer = document.getElementById('attackers-container');
+                if (data.sessions && data.sessions.length > 0) {
+                    attackersContainer.innerHTML = '';
+                    data.sessions.forEach(session => {
+                        const card = document.createElement('div');
+                        card.className = 'attacker-card';
+                        card.innerHTML = `
+                            <div class="attacker-header">
+                                <div class="ip-address">${session.ip}</div>
+                                <div class="threat-score" style="background: ${session.threat_color}22; color: ${session.threat_color}; border: 1px solid ${session.threat_color};">
+                                    Score: ${session.threat_score} - ${session.threat_score_label}
+                                </div>
+                            </div>
+                            <div class="details-grid">
+                                <div><span class="details-label">Profile:</span> ${session.profile}</div>
+                                <div><span class="details-label">Targeted Services:</span> ${session.services.join(', ')}</div>
+                                <div><span class="details-label">Events Logged:</span> ${session.event_count}</div>
+                                <div><span class="details-label">Kill Chain:</span> ${session.kill_chain}</div>
+                            </div>
+                            <div class="kill-chain-bar">
+                                <div class="kill-chain-progress" style="width: ${getKillChainWidth(session.kill_chain)}"></div>
+                            </div>
+                        `;
+                        attackersContainer.appendChild(card);
+                    });
+                }
+
+                // Render Events
+                const eventsContainer = document.getElementById('events-container');
+                eventsContainer.innerHTML = '';
+                data.events.forEach(ev => {
+                    const tr = document.createElement('tr');
+                    const d = new Date(ev.timestamp);
+                    const timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    
+                    let serviceColor = ev.service === 'SSH' ? '#8b5cf6' : '#3b82f6';
+                    if (ev.service === 'Web Terminal') serviceColor = '#ef4444';
+
+                    tr.innerHTML = `
+                        <td style="color: var(--text-muted)">${timeStr}</td>
+                        <td style="font-family: monospace;">${ev.ip}</td>
+                        <td><span class="tag" style="color: ${serviceColor}; border: 1px solid ${serviceColor};">${ev.service}</span></td>
+                        <td style="font-family: monospace; font-size: 13px;">${ev.action}</td>
+                    `;
+                    eventsContainer.appendChild(tr);
+                });
+
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+        }
+
+        setInterval(fetchStats, 2000);
+        fetchStats();
+    </script>
+</body>
+</html>

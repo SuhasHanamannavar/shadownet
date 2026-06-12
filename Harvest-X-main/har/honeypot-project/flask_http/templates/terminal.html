@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Terminal Access</title>
+    <style>
+        body {
+            background-color: #0c0c0c;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            overflow-y: scroll;
+        }
+
+        #terminal {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        .prompt {
+            color: #00ff00;
+            margin-right: 10px;
+        }
+
+        #cmd-input {
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            flex-grow: 1;
+            outline: none;
+        }
+        
+        .blockchain-log {
+            font-size: 12px;
+            color: #555;
+            text-align: left;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="terminal">
+Ubuntu 22.04.2 LTS prod-server-01 tty1
+Last login: Mon May  4 08:31:02 2026 from 10.0.0.5
+Welcome to the administration terminal.
+Type 'help' for a list of commands.
+    </div>
+    
+    <div class="input-line">
+        <span class="prompt">root@prod-server-01:~#</span>
+        <input type="text" id="cmd-input" autofocus autocomplete="off" spellcheck="false">
+    </div>
+
+    <script>
+        const input = document.getElementById('cmd-input');
+        const terminal = document.getElementById('terminal');
+
+        input.addEventListener('keypress', async function (e) {
+            if (e.key === 'Enter') {
+                const cmd = input.value;
+                input.value = '';
+                
+                // Add command to terminal
+                terminal.innerHTML += `\n<span style="color:#00ff00">root@prod-server-01:~#</span> ${cmd}\n`;
+                
+                if (cmd.trim() === 'clear') {
+                    terminal.innerHTML = '';
+                    window.scrollTo(0, document.body.scrollHeight);
+                    return;
+                }
+
+                if (cmd.trim() !== '') {
+                    try {
+                        const response = await fetch('/api/terminal/run', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ command: cmd })
+                        });
+                        const data = await response.json();
+                        if (data.output) {
+                            terminal.innerHTML += `${data.output}\n`;
+                        }
+                        if (data.tx_hash) {
+                            terminal.innerHTML += `<div class="blockchain-log">[Algorand Simulation] Block Hash: ${data.tx_hash} - Tamper-proof logging enabled</div>`;
+                        }
+                    } catch (err) {
+                        terminal.innerHTML += `bash: ${cmd}: input/output error\n`;
+                    }
+                }
+                
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        });
+        
+        // Keep focus
+        document.addEventListener('click', () => input.focus());
+    </script>
+</body>
+</html>

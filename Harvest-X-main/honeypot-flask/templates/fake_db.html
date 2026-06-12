@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Database Panel — CorpNet Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:24px}
+h1{font-size:20px;font-weight:700;margin-bottom:4px;color:#60a5fa}
+.sub{font-size:13px;color:#64748b;margin-bottom:24px}
+.query-box{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:20px}
+.query-box label{font-size:12px;color:#64748b;display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+textarea{width:100%;background:#0f172a;border:1px solid #334155;color:#a5f3fc;font-family:'JetBrains Mono',monospace;font-size:13px;padding:12px;border-radius:6px;resize:vertical;min-height:80px;outline:none}
+textarea:focus{border-color:#3b82f6}
+.run-btn{margin-top:12px;padding:9px 24px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
+.run-btn:hover{background:#1d4ed8}
+.results{background:#1e293b;border:1px solid #334155;border-radius:10px;overflow:hidden}
+.results-hdr{padding:12px 18px;border-bottom:1px solid #334155;font-size:12px;color:#64748b;display:flex;justify-content:space-between}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:'JetBrains Mono',monospace}
+th{color:#94a3b8;font-weight:500;text-align:left;padding:8px 14px;background:#273449;border-bottom:1px solid #334155}
+td{padding:8px 14px;border-bottom:1px solid #1e293b;color:#cbd5e1}
+.loading{padding:24px;text-align:center;color:#475569;font-size:13px}
+.back{display:inline-block;margin-bottom:20px;color:#60a5fa;text-decoration:none;font-size:13px}
+</style>
+</head>
+<body>
+<a class="back" href="/admin">← Back to Dashboard</a>
+<h1>Database Query Panel</h1>
+<div class="sub">corpnet_production @ db-prod-01.corp.internal:5432</div>
+
+<div class="query-box">
+  <label>SQL Query</label>
+  <textarea id="query" placeholder="SELECT * FROM users LIMIT 10;">SELECT * FROM users LIMIT 10;</textarea>
+  <button class="run-btn" onclick="runQuery()">Execute Query</button>
+</div>
+
+<div class="results" id="results-panel">
+  <div class="results-hdr"><span>Results</span><span id="result-meta">No query executed</span></div>
+  <div class="loading" id="results-body">Run a query to see results here.</div>
+</div>
+
+<script>
+async function runQuery() {
+  const q = document.getElementById('query').value;
+  document.getElementById('results-body').innerHTML = '<div class="loading">Executing...</div>';
+  const resp = await fetch('/admin/database', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'query=' + encodeURIComponent(q)
+  });
+  const data = await resp.json();
+  document.getElementById('result-meta').textContent =
+    `${data.affected} row(s) — ${data.time}`;
+
+  if (!data.rows || data.rows.length === 0) {
+    document.getElementById('results-body').innerHTML = '<div class="loading">No results.</div>';
+    return;
+  }
+  const cols = Object.keys(data.rows[0]);
+  let html = '<table><tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+  data.rows.forEach(row => {
+    html += '<tr>' + cols.map(c=>`<td>${row[c]}</td>`).join('') + '</tr>';
+  });
+  html += '</table>';
+  document.getElementById('results-body').innerHTML = html;
+}
+</script>
+</body>
+</html>

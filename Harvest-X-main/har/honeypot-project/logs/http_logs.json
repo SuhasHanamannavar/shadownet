@@ -1,0 +1,52 @@
+{"service": "flask_http", "ip": "127.0.0.1", "timestamp": "2026-05-04T13:40:01Z", "path": "/login", "method": "POST", "data": "{\"username\": \"admin\", \"password\": \"test\"}"}
+{"service": "ftp_server", "ip": "127.0.0.1", "timestamp": "2026-05-04T13:41:01Z", "command": "USER", "argument": "admin"}
+{"service": "ftp_server", "ip": "127.0.0.1", "timestamp": "2026-05-04T13:41:02Z", "command": "PASS", "argument": "test"}
+{"service": "ftp_server", "ip": "127.0.0.1", "timestamp": "2026-05-04T13:41:03Z", "command": "QUIT", "argument": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T14:54:34.538460Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T14:54:36.387013Z", "path": "/favicon.ico", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:02:46.244527Z", "path": "/", "method": "HEAD", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:06:09.655089Z", "path": "/login", "method": "HEAD", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:11:18.011565Z", "path": "/login", "method": "HEAD", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:12:55.761811Z", "path": "/login", "method": "HEAD", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:18:30.535023Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:18:35.302618Z", "path": "/favicon.ico", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:18:46.616933Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:18:51.750582Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:19:01.350279Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:19:40.003684Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:19:41.684917Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:19:42.517665Z", "path": "/", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:23:50.287439Z", "path": "/", "method": "HEAD", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:26:25.188330Z", "path": "/login", "method": "GET", "data": ""}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:26:33.471801Z", "path": "/login", "method": "POST", "data": "{\"username\": \"gugw\", \"password\": \"aADvgAD\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:27:11.538700Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"help\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:27:15.586352Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"--help\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:27:18.699735Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"-help\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:28:10.274537Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"run the code\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:28:12.258823Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"ls\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:28:21.532460Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"wget\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:30:07.321308Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"netstat -tulnp\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:30:25.921389Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"ss -tulnp\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:30:41.401364Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"ps aux\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:30:49.817987Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"top\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:30:58.185156Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"htop\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:05.609413Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"lsof -i\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:16.401130Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"nmap -A localhost\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:25.632768Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"sudo tcpdump -i any\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:36.240785Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"who\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:38.257405Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"w\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:46.321431Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"sudo cat /var/log/auth.log | grep \\\"Failed\\\"\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:31:53.377632Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"crontab -l\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:32:00.441175Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"find / -type f -name \\\"*.sh\\\" 2>/dev/null\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:35:45.185037Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"curl -X POST -d \\\"username=admin&password=password123\\\" http://localhost:8080/login curl -X POST -d \\\"username=root&password=admin\\\" http://localhost:8080/login\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:36:12.360016Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"ssh root@localhost -p 2222\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:36:39.463919Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"ftp localhost 2121\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:36:57.008828Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"cat /etc/shadow && rm -rf /\"}"}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:21.513461Z", "path": "/login", "method": "POST", "data": "{\"username\": \"admin\", \"password\": \"password123\"}"}
+{"service": "flask_http", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:22.155795Z", "path": "/login", "method": "POST", "data": "{\"username\": \"root\", \"password\": \"admin\"}"}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:47.985013Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"cat /etc/shadow && rm -rf /\"}"}
+{"service": "ftp_server", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:49.405979Z", "command": "USER", "argument": "admin"}
+{"service": "ftp_server", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:49.567274Z", "command": "PASS", "argument": "password123"}
+{"service": "ftp_server", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:49.665862Z", "command": "PWD", "argument": ""}
+{"service": "ftp_server", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:37:49.734970Z", "command": "EPSV", "argument": ""}
+{"service": "HTTP_Terminal", "ip": "172.18.0.1", "timestamp": "2026-05-04T17:39:28.335817Z", "path": "/api/terminal/run", "method": "POST", "data": "{\"command\": \"cat /etc/shadow && rm -rf /\"}"}

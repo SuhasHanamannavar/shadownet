@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Enterprise Portal — HarvestX</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --primary: #0ea5e9;
+  --primary-dark: #0284c7;
+  --bg-color: #f8fafc;
+  --sidebar-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.brand { height: 70px; display: flex; align-items: center; padding: 0 24px; font-size: 20px; font-weight: 700; color: var(--primary-dark); border-bottom: 1px solid var(--border); letter-spacing: -0.5px; }
+.brand span { color: var(--text-main); margin-left: 6px; }
+
+.nav-menu { flex: 1; padding: 20px 12px; overflow-y: auto; }
+.nav-item { padding: 12px 16px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-muted); transition: all 0.2s; display: flex; align-items: center; gap: 12px; }
+.nav-item:hover { background: #f1f5f9; color: var(--text-main); }
+.nav-item.active { background: #e0f2fe; color: var(--primary-dark); }
+
+.sidebar-footer { padding: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+
+/* Main Content Area */
+.main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { height: 70px; background: #ffffff; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; }
+.search-bar input { border: 1px solid var(--border); border-radius: 20px; padding: 8px 16px; width: 300px; font-size: 13px; outline: none; transition: border 0.2s; }
+.search-bar input:focus { border-color: var(--primary); }
+
+.user-profile { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
+.user-info { display: flex; flex-direction: column; }
+.user-name { font-size: 14px; font-weight: 600; }
+.user-role { font-size: 12px; color: var(--text-muted); text-transform: capitalize; }
+
+.content-area { flex: 1; overflow-y: auto; padding: 32px; }
+.page { display: none; animation: fadeIn 0.3s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Shared Page Styles */
+.page-header { margin-bottom: 32px; }
+.page-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+.page-desc { font-size: 14px; color: var(--text-muted); }
+
+/* Dashboard Cards */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; }
+.stat-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-sm); }
+.stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
+.stat-val { font-size: 28px; font-weight: 700; color: var(--text-main); }
+.stat-trend { font-size: 12px; margin-top: 8px; display: inline-block; padding: 4px 8px; border-radius: 12px; font-weight: 500; }
+.trend-up { background: #dcfce7; color: #166534; }
+.trend-down { background: #fee2e2; color: #991b1b; }
+
+/* Panels / Tables */
+.panel { background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 24px; overflow: hidden; }
+.panel-hdr { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.panel-title { font-weight: 600; font-size: 16px; }
+.btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn:hover { background: var(--primary-dark); }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+.btn-outline:hover { background: #f8fafc; }
+
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th { padding: 12px 24px; background: #f8fafc; color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+td { padding: 16px 24px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); }
+tr:last-child td { border-bottom: none; }
+tr:hover { background: #f8fafc; }
+
+.status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.status-active { background: #dcfce7; color: #166534; }
+.status-pending { background: #fef3c7; color: #92400e; }
+
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    <span>HarvestX</span>
+  </div>
+  <div class="nav-menu">
+    <div class="nav-item active" onclick="switchTab('dashboard', this)">
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="switchTab('directory', this)">
+      Employee Directory
+    </div>
+    <div class="nav-item" onclick="switchTab('projects', this)">
+      Active Projects
+    </div>
+    <div class="nav-item" onclick="switchTab('payroll', this)">
+      Payroll & HR
+    </div>
+    <div class="nav-item" onclick="switchTab('settings', this)">
+      Account Settings
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <p>HarvestX Corporate Portal</p>
+    <p style="margin-top: 4px; color: #94a3b8;">v2.4.1 — Authenticated</p>
+  </div>
+</div>
+
+<div class="main-wrapper">
+  <div class="topbar">
+    <div class="search-bar">
+      <input type="text" placeholder="Search employees, documents, projects..."/>
+    </div>
+    <div class="user-profile">
+      <div class="user-info" style="text-align: right;">
+        <span class="user-name">{{ user }}</span>
+        <span class="user-role">{{ role }}</span>
+      </div>
+      <div class="avatar">{{ user[0]|upper }}</div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    
+    <!-- DASHBOARD PAGE -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <h1 class="page-title">Welcome back, {{ user }}!</h1>
+        <p class="page-desc">Here is the overview of your enterprise activities for today.</p>
+      </div>
+
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-label">Pending Approvals</div>
+          <div class="stat-val">12</div>
+          <div class="stat-trend trend-down">-3 from yesterday</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unread Messages</div>
+          <div class="stat-val">5</div>
+          <div class="stat-trend trend-up">+2 new since login</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Upcoming Meetings</div>
+          <div class="stat-val">3</div>
+          <div class="stat-trend trend-up">Next at 2:00 PM</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Security Status</div>
+          <div class="stat-val" style="color:#166534">Secure</div>
+          <div class="stat-trend trend-up">Last scan: 10m ago</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hdr">
+          <span class="panel-title">Recent Announcements</span>
+          <button class="btn btn-outline">View All</button>
+        </div>
+        <div class="panel-body" style="padding: 24px;">
+          <h3 style="font-size: 16px; margin-bottom: 8px;">Q3 Townhall Meeting Scheduled</h3>
+          <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Please join us next Friday at 10:00 AM EST for the Q3 corporate townhall. The CEO will be discussing our upcoming product launches and the new AI integration strategy.</p>
+          
+          <h3 style="font-size: 16px; margin-bottom: 8px;">Update on Remote Work Policy</h3>
+          <p style="color: var(--text-muted); font-size: 14px;">The HR department has updated the guidelines for hybrid work schedules. Please review the new document in the HR portal before the end of the month.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECTORY PAGE -->
+    <div id="page-directory" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Employee Directory</h1>
+        <p class="page-desc">Browse and contact members of the HarvestX organization.</p>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-hdr">
+          <span class="panel-title">Engineering Department</span>
+          <button class="btn">Add Employee</button>
+        </div>
+        <table>
+          <tr><th>Name</th><th>Position</th><th>Email</th><th>Status</th></tr>
+          <tr>
+            <td><strong>Sarah Jenkins</strong></td>
+            <td>Lead Software Engineer</td>
+            <td>s.jenkins@harvestx.com</td>
+            <td><span class="status-badge status-active">Active</span></td>
+          </tr>
+          <tr>
+            <td><strong>David Chen</strong></td>
+            <td>Data Scientist</td>
+            <td>d.chen@harvestx.com</td>
+            <td><span class="status-badge status-active">Active</span></td>
+          </tr>
+          <tr>
+            <td><strong>Marcus Thorne</strong></td>
+            <td>DevOps Specialist</td>
+            <td>m.thorne@harvestx.com</td>
+            <td><span class="status-badge status-pending">On Leave</span></td>
+          </tr>
+          <tr>
+            <td><strong>Elena Rodriguez</strong></td>
+            <td>Frontend Developer</td>
+            <td>e.rodriguez@harvestx.com</td>
+            <td><span class="status-badge status-active">Active</span></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROJECTS PAGE -->
+    <div id="page-projects" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Active Projects</h1>
+        <p class="page-desc">Track the status of ongoing internal and client deliverables.</p>
+      </div>
+      
+      <div class="panel" style="padding: 24px;">
+        <h3 style="margin-bottom: 16px; color: var(--primary-dark);">Project Orion</h3>
+        <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; margin-bottom: 12px;">
+          <div style="width: 75%; background: var(--primary); height: 100%; border-radius: 4px;"></div>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted);">75% Complete — Due on Oct 15th</p>
+        
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;"/>
+        
+        <h3 style="margin-bottom: 16px; color: var(--primary-dark);">Infrastructure Cloud Migration</h3>
+        <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; margin-bottom: 12px;">
+          <div style="width: 30%; background: #f59e0b; height: 100%; border-radius: 4px;"></div>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted);">30% Complete — Due on Dec 1st</p>
+      </div>
+    </div>
+
+    <!-- PAYROLL PAGE -->
+    <div id="page-payroll" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Payroll & HR</h1>
+        <p class="page-desc">View your compensation details and tax documents.</p>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-hdr">
+          <span class="panel-title">Recent Payslips</span>
+        </div>
+        <table>
+          <tr><th>Date</th><th>Period</th><th>Net Pay</th><th>Action</th></tr>
+          <tr><td>Aug 31, 2026</td><td>Aug 15 - Aug 31</td><td>$4,250.00</td><td><button class="btn btn-outline">Download PDF</button></td></tr>
+          <tr><td>Aug 15, 2026</td><td>Aug 01 - Aug 15</td><td>$4,250.00</td><td><button class="btn btn-outline">Download PDF</button></td></tr>
+          <tr><td>Jul 31, 2026</td><td>Jul 15 - Jul 31</td><td>$4,250.00</td><td><button class="btn btn-outline">Download PDF</button></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Account Settings</h1>
+        <p class="page-desc">Manage your security preferences and personal information.</p>
+      </div>
+      
+      <div class="panel" style="padding: 24px; max-width: 600px;">
+        <h3 style="margin-bottom: 16px; font-size: 16px;">Security</h3>
+        <p style="font-size: 14px; margin-bottom: 24px; color: var(--text-muted);">Update your password or enable Two-Factor Authentication.</p>
+        <button class="btn" style="margin-right: 12px;">Change Password</button>
+        <button class="btn btn-outline">Enable 2FA</button>
+        
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;"/>
+        
+        <h3 style="margin-bottom: 16px; font-size: 16px;">Session Options</h3>
+        <button class="btn" style="background: #ef4444;" onclick="window.location='/login'">Sign Out</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(tabId, element) {
+  // Update nav UI
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  element.classList.add('active');
+  
+  // Update content visibility
+  document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+  document.getElementById('page-' + tabId).classList.add('active');
+}
+</script>
+
+</body>
+</html>
