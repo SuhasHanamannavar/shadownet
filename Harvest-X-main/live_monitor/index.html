@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Harvest-X — Live Threat Monitor</title>
+  <title>ShadowNet — Live Threat Monitor</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -289,6 +289,7 @@
     .replay-progress { flex: 1; height: 4px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
     .replay-fill { height: 100%; background: var(--blue); width: 0%; transition: width 0.3s; }
     .replay-info { font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); }
+    .replay-controls { display: flex; align-items: center; gap: 6px; }
 
     /* ── BUTTONS ── */
     .btn { padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-family: var(--font-body); }
@@ -301,6 +302,7 @@
     .btn-export:hover:not(:disabled) { background: rgba(79, 125, 92, 0.2); }
     .btn-stop { background: var(--red-light); color: var(--red); border: 1px solid rgba(184, 74, 58, 0.3); }
     .btn-stop:hover { background: rgba(184, 74, 58, 0.2); }
+    .btn-speed.active { background: var(--blue-light); color: var(--blue); border-color: var(--blue); }
 
     /* ── RIGHT PANEL ── */
     .right-panel { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; height: 100%; }
@@ -334,6 +336,7 @@
     .sc-status.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1.5s infinite; }
     .sc-status.dead { background: var(--text-muted); }
     .sc-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .sc-actions { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     
     .risk-chip { font-size: 9px; font-family: var(--font-mono); padding: 2px 5px; border-radius: 4px; font-weight: 700; }
     .risk-chip.hi { background: rgba(184, 74, 58, 0.15); color: var(--red); }
@@ -362,7 +365,7 @@
         <div class="logo-dot"></div>
         <span class="logo-text">MIRAGE DETECT</span>
       </div>
-      <div class="hdr-title">🛡️ Harvest-X — Unified Defender Dashboard</div>
+      <div class="hdr-title">🛡️ ShadowNet — Unified Defender Dashboard</div>
     </div>
     <div class="hdr-right">
       <span id="ws-badge" class="status-pill disconnected">
@@ -459,7 +462,12 @@
         <div class="replay-bar" id="replay-bar">
           <div class="replay-progress"><div class="replay-fill" id="replay-fill"></div></div>
           <span class="replay-info" id="replay-info">Replaying...</span>
-          <button class="btn btn-stop" onclick="stopReplay()">Stop</button>
+          <div class="replay-controls">
+            <button class="btn btn-ghost" id="replay-play" onclick="playReplay()">Play</button>
+            <button class="btn btn-ghost" id="replay-pause" onclick="pauseReplay()">Pause</button>
+            <button class="btn btn-ghost btn-speed" id="replay-speed" onclick="toggleReplaySpeed()">2x Speed</button>
+            <button class="btn btn-stop" onclick="stopReplay()">Stop</button>
+          </div>
         </div>
 
         <div class="terminal" id="terminal">
@@ -473,10 +481,10 @@
 
     <!-- RIGHT COLUMN -->
     <div class="right-panel">
-      <!-- Active Sessions list -->
+      <!-- Recent Sessions list -->
       <div class="card">
         <div class="card-hdr">
-          <span class="card-title">Attacker Sessions</span>
+          <span class="card-title">Recent Sessions</span>
           <span class="card-badge" id="session-count">0 sessions</span>
         </div>
         <div class="session-list" id="session-list" style="height: 200px; overflow-y: auto; padding: 8px;">
@@ -617,6 +625,13 @@
     let sessions = {};
     let activeSession = null;
     let replayTimer = null;
+    let replayState = {
+      sessionId: null,
+      commands: [],
+      index: 0,
+      status: 'stopped',
+      speed: 1
+    };
     let markers = {};
 
     // ── Google/CartoDB Light Map Setup ─────────────────────────────────────────
@@ -628,6 +643,45 @@
 
     const colors = { 'APT': '#B84A3A', 'Bot': '#3A6EA5', 'Human': '#4F7D5C', 'Scanner': '#7E7B75' };
     const tagMap = { 'Bot': 'tag-bot', 'Human': 'tag-human', 'APT': 'tag-apt', 'Scanner': 'tag-scanner' };
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatDuration(seconds) {
+      const dSec = Math.max(0, Math.round(Number(seconds) || 0));
+      if (dSec >= 3600) {
+        return Math.floor(dSec / 3600) + 'h ' + Math.floor((dSec % 3600) / 60) + 'm';
+      }
+      if (dSec >= 60) {
+        return Math.floor(dSec / 60) + 'm ' + (dSec % 60) + 's';
+      }
+      return dSec + 's';
+    }
+
+    function sessionDurationSeconds(s) {
+      if (!s) return 0;
+      if (s.session_duration !== undefined && s.session_duration !== null) {
+        return Number(s.session_duration) || 0;
+      }
+      if (!s.start_time) return 0;
+      const start = new Date(s.start_time);
+      const end = s.end_time ? new Date(s.end_time) : new Date();
+      return Math.max(0, Math.round((end - start) / 1000));
+    }
+
+    function isDangerousCommand(cmd) {
+      if (cmd.is_dangerous === true || cmd.is_dangerous === 1) return true;
+      const text = String(cmd.command || '').toLowerCase();
+      return ['rm -rf', 'wget ', 'curl ', 'nc ', 'netcat', 'bash -i', '/dev/tcp',
+              'chmod 777', 'shadow', 'authorized_keys', 'sudo ', 'history -c',
+              'base64 -d', 'crontab'].some(token => text.includes(token));
+    }
 
     // ── Deterministic Geo-IP Resolver for demonstration ───────────────────────
     function getIpLocation(ip) {
@@ -702,7 +756,7 @@
       row.className = 'feed-row new';
 
       const time = d.timestamp ? d.timestamp.split('T')[1]?.substring(0,8) || '--:--:--' : '--:--:--';
-      const cmdText = d.command ? d.command.replace(/</g, '&lt;') : 'Session started';
+      const cmdText = d.command ? escapeHtml(d.command) : 'Session started';
       const type = d.attacker_type || 'Scanner';
       const risk = d.risk_score || 50;
 
@@ -806,10 +860,10 @@
     function renderSidebar() {
       const list = document.getElementById('session-list');
       const sids = Object.keys(sessions).sort((a, b) =>
-        (sessions[b].start_time || '') > (sessions[a].start_time || '') ? 1 : -1
+        (sessions[b].end_time || sessions[b].start_time || '') > (sessions[a].end_time || sessions[a].start_time || '') ? 1 : -1
       );
       if (sids.length === 0) {
-        list.innerHTML = `<div class="term-empty" style="height:100px;"><p style="font-size:12px;">Waiting for attackers...</p></div>`;
+        list.innerHTML = `<div class="term-empty" style="height:100px;"><p style="font-size:12px;">Waiting for Cowrie sessions...</p></div>`;
         return;
       }
       list.innerHTML = sids.map(sid => {
@@ -817,21 +871,27 @@
         const isActive = sid === activeSession;
         const isLive = s.status === 'active';
         const type = s.attacker_type || 'Scanner';
-        const risk = s.risk_score || 50;
+        const risk = s.threat_score !== undefined ? s.threat_score : (s.risk_score || 50);
         const rClass = risk > 80 ? 'hi' : risk > 50 ? 'med' : 'lo';
         const cmds = s.command_count || (s.commands || []).length || 0;
         const time = s.start_time ? s.start_time.split('T')[1]?.substring(0,8) || '' : '';
+        const duration = formatDuration(sessionDurationSeconds(s));
+        const replayDisabled = isLive || cmds === 0;
         return `
           <div class="session-card ${isActive ? 'active-sel' : ''} ${!isLive ? 'ended' : ''}" onclick="selectSession('${sid}')">
             <div class="sc-header">
-              <span class="sc-ip">${s.src_ip || '?'}</span>
+              <span class="sc-ip">${escapeHtml(s.src_ip || '?')}</span>
               <span class="sc-status ${isLive ? 'live' : 'dead'}"></span>
             </div>
             <div class="sc-meta">
               <span class="tag ${tagMap[type] || 'tag-scanner'}">${type}</span>
-              <span class="risk-chip ${rClass}">RISK ${risk}</span>
+              <span class="risk-chip ${rClass}">SCORE ${risk}</span>
             </div>
-            <div class="sc-cmds">${cmds} commands · ${time} UTC</div>
+            <div class="sc-cmds">${cmds} commands - ${duration} - ${time} UTC</div>
+            <div class="sc-actions">
+              <span class="sc-cmds" style="margin-top:0;">${isLive ? 'Live Cowrie session' : 'Completed Cowrie session'}</span>
+              <button class="btn btn-ghost btn-replay" onclick="replaySession('${sid}', event)" ${replayDisabled ? 'disabled' : ''}>Replay</button>
+            </div>
           </div>`;
       }).join('');
     }
@@ -876,9 +936,10 @@
       document.getElementById('ti-type').textContent = s.attacker_type || 'Unknown';
       document.getElementById('ti-cmds').textContent = s.commands ? s.commands.length : 0;
       
+      const threatScore = s.threat_score !== undefined ? s.threat_score : (s.risk_score || 10);
       const rEl = document.getElementById('ti-risk');
-      rEl.textContent = s.risk_score || 0;
-      rEl.style.color = s.risk_score > 80 ? 'var(--red)' : s.risk_score > 50 ? 'var(--orange)' : 'var(--green)';
+      rEl.textContent = threatScore;
+      rEl.style.color = threatScore > 80 ? 'var(--red)' : threatScore > 50 ? 'var(--orange)' : 'var(--green)';
 
       // Update Attacker Profile panel
       document.getElementById('prof-card').style.display = 'block';
@@ -886,7 +947,6 @@
       document.getElementById('prof-confidence').textContent = (s.confidence !== undefined ? s.confidence : 50) + '%';
       document.getElementById('prof-interest').textContent = s.interest || 'Reconnaissance';
       
-      const threatScore = s.threat_score !== undefined ? s.threat_score : (s.risk_score || 10);
       document.getElementById('prof-threat').textContent = threatScore;
       document.getElementById('prof-threat-fill').style.width = threatScore + '%';
       document.getElementById('prof-threat-badge').textContent = 'Score: ' + threatScore;
@@ -902,25 +962,7 @@
         document.getElementById('prof-type').style.color = 'var(--green)';
       }
 
-      let durationStr = '0s';
-      if (s.start_time) {
-        const start = new Date(s.start_time);
-        const end = s.end_time ? new Date(s.end_time) : new Date();
-        const diffSec = Math.max(0, Math.round((end - start) / 1000));
-        if (diffSec > 60) {
-          durationStr = Math.floor(diffSec / 60) + 'm ' + (diffSec % 60) + 's';
-        } else {
-          durationStr = diffSec + 's';
-        }
-      }
-      if (s.session_duration) {
-        const dSec = s.session_duration;
-        if (dSec > 60) {
-          durationStr = Math.floor(dSec / 60) + 'm ' + (dSec % 60) + 's';
-        } else {
-          durationStr = dSec + 's';
-        }
-      }
+      let durationStr = formatDuration(sessionDurationSeconds(s));
       
       document.getElementById('prof-duration').textContent = durationStr;
       document.getElementById('prof-cmds').textContent = s.commands ? s.commands.length : 0;
@@ -943,7 +985,7 @@
       updateProfileUI(s);
 
       document.getElementById('term-session').textContent = `Live Session Terminal — IP: ${s.src_ip}`;
-      document.getElementById('replay-btn').disabled = false;
+      document.getElementById('replay-btn').disabled = s.status === 'active' || !(s.commands || []).length;
       document.getElementById('export-btn').disabled = false;
 
       // Render commands to Terminal
@@ -964,11 +1006,11 @@
       const empty = term.querySelector('.term-empty');
       if (empty) empty.remove();
 
-      const risk = cmd.risk_score || 50;
-      const rClass = risk > 80 ? 'hi-risk' : risk > 50 ? 'med-risk' : '';
+      const risk = cmd.threat_score !== undefined ? cmd.threat_score : (cmd.risk_score || 50);
+      const rClass = isDangerousCommand(cmd) || risk > 80 ? 'hi-risk' : risk > 50 ? 'med-risk' : '';
       const ts = cmd.timestamp ? cmd.timestamp.split('T')[1]?.substring(0,8) || '--:--:--' : '--:--:--';
-      const commandText = (cmd.command || '').replace(/</g, '&lt;');
-      const responseText = (cmd.response || '').replace(/</g, '&lt;');
+      const commandText = escapeHtml(cmd.command || '');
+      const responseText = escapeHtml(cmd.response || '');
 
       const div = document.createElement('div');
       div.className = 'term-line';
@@ -989,38 +1031,115 @@
     }
 
     // ── Replay Session ─────────────────────────────────────────────────────────
-    function replaySession() {
-      if (!activeSession) return;
+    async function replaySession(sid = activeSession, event = null) {
+      if (event) event.stopPropagation();
+      if (!sid) return;
+
       stopReplay();
-      const s = sessions[activeSession];
-      const cmds = s.commands || [];
+      activeSession = sid;
+
+      const r = await fetch(`${BASE_URL}/api/replay/${sid}`).catch(() => null);
+      if (!r || !r.ok) {
+        document.getElementById('replay-info').textContent = 'Replay is available after session end';
+        renderSidebar();
+        return;
+      }
+
+      const data = await r.json();
+      sessions[sid] = data;
+      updateProfileUI(data);
+      renderSidebar();
+
+      const cmds = data.commands || [];
       if (cmds.length === 0) return;
 
+      replayState = {
+        sessionId: sid,
+        commands: cmds,
+        index: 0,
+        status: 'playing',
+        speed: replayState.speed || 1
+      };
+
+      document.getElementById('term-session').textContent = `Session Replay - IP: ${data.src_ip} - ${formatDuration(sessionDurationSeconds(data))}`;
       document.getElementById('terminal').innerHTML = '';
       document.getElementById('replay-bar').classList.add('show');
+      document.getElementById('replay-fill').style.width = '0%';
       document.getElementById('replay-btn').disabled = true;
+      updateReplayControls();
+      playReplay();
+    }
 
-      let i = 0;
-      function next() {
-        if (i >= cmds.length) {
-          stopReplay();
-          document.getElementById('replay-info').textContent = 'Replay complete';
-          return;
-        }
-        appendTerminalLine(cmds[i]);
-        const pct = Math.round(((i + 1) / cmds.length) * 100);
-        document.getElementById('replay-fill').style.width = pct + '%';
-        document.getElementById('replay-info').textContent = `Replaying ${i+1}/${cmds.length}`;
-        i++;
-        replayTimer = setTimeout(next, 700 + Math.random() * 400);
-      }
-      next();
+    function playReplay() {
+      if (!replayState.commands.length) return;
+      if (replayTimer) clearTimeout(replayTimer);
+      replayState.status = 'playing';
+      document.getElementById('replay-bar').classList.add('show');
+      updateReplayControls();
+      runReplayStep();
+    }
+
+    function pauseReplay() {
+      if (replayTimer) clearTimeout(replayTimer);
+      replayTimer = null;
+      replayState.status = 'paused';
+      updateReplayControls();
     }
 
     function stopReplay() {
-      if (replayTimer) { clearTimeout(replayTimer); replayTimer = null; }
+      if (replayTimer) clearTimeout(replayTimer);
+      replayTimer = null;
+      replayState.status = 'stopped';
+      replayState.index = 0;
+      replayState.commands = [];
       document.getElementById('replay-bar').classList.remove('show');
-      document.getElementById('replay-btn').disabled = (activeSession === null);
+      document.getElementById('replay-fill').style.width = '0%';
+      const s = activeSession ? sessions[activeSession] : null;
+      document.getElementById('replay-btn').disabled = !s || s.status === 'active' || !(s.commands || []).length;
+      updateReplayControls();
+    }
+
+    function toggleReplaySpeed() {
+      replayState.speed = replayState.speed === 2 ? 1 : 2;
+      updateReplayControls();
+    }
+
+    function runReplayStep() {
+      if (replayState.status !== 'playing') return;
+
+      const cmds = replayState.commands;
+      if (replayState.index >= cmds.length) {
+        replayState.status = 'complete';
+        replayTimer = null;
+        document.getElementById('replay-info').textContent = 'Replay complete';
+        document.getElementById('replay-btn').disabled = false;
+        updateReplayControls();
+        return;
+      }
+
+      const cmd = cmds[replayState.index];
+      appendTerminalLine(cmd);
+      replayState.index += 1;
+
+      const pct = Math.round((replayState.index / cmds.length) * 100);
+      document.getElementById('replay-fill').style.width = pct + '%';
+      document.getElementById('replay-info').textContent =
+        `Replaying ${replayState.index}/${cmds.length} at ${replayState.speed}x`;
+
+      if (replayState.index >= cmds.length) {
+        replayTimer = setTimeout(runReplayStep, 250);
+        return;
+      }
+
+      const nextDelay = Math.max(100, (cmds[replayState.index].replay_delay_ms || 0) / replayState.speed);
+      replayTimer = setTimeout(runReplayStep, nextDelay);
+    }
+
+    function updateReplayControls() {
+      const isPlaying = replayState.status === 'playing';
+      document.getElementById('replay-play').disabled = isPlaying || !replayState.commands.length;
+      document.getElementById('replay-pause').disabled = !isPlaying;
+      document.getElementById('replay-speed').classList.toggle('active', replayState.speed === 2);
     }
 
     // ── Export Session ─────────────────────────────────────────────────────────
@@ -1076,7 +1195,7 @@
 
       addFeedRow(d);
 
-      if (sid === activeSession) {
+      if (sid === activeSession && replayState.status !== 'playing' && replayState.status !== 'paused') {
         appendTerminalLine(d);
         updateProfileUI(sessions[sid]);
       }
@@ -1086,7 +1205,11 @@
     });
 
     socket.on('session_end', d => {
-      if (sessions[d.session_id]) sessions[d.session_id].status = 'ended';
+      if (sessions[d.session_id]) {
+        sessions[d.session_id].status = 'ended';
+        sessions[d.session_id].end_time = d.timestamp;
+        sessions[d.session_id].session_duration = d.session_duration;
+      }
       renderSidebar();
       loadStats();
     });

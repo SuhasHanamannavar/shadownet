@@ -8,7 +8,7 @@ import shutil
 from PIL import Image
 
 WEBP_PATH = r"C:\Users\smgal\.gemini\antigravity\brain\59f963eb-d42b-4257-8630-e2166064ee03\full_attack_stream_1777943065172.webp"
-MP4_OUT   = r"C:\Users\smgal\Documents\harvestX\live_attack_demo.mp4"
+MP4_OUT   = r"C:\Users\smgal\Documents\shadownet\live_attack_demo.mp4"
 FFMPEG    = r"C:\Users\smgal\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe"
 
 tmpdir = tempfile.mkdtemp()

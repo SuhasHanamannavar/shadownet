@@ -236,6 +236,29 @@ def login():
         username = request.form.get("username", "")
         password = request.form.get("password", "")
 
+        # 1. First verify if the credentials are valid
+        user_record = real_db.verify_user(username, password)
+        if user_record:
+            # Clear all attacker/fake session data
+            session.pop("fake_mode", None)
+            session.pop("attacker", None)
+            session.pop("is_hacker", None)
+            session.pop("is_attacker", None)
+            session.pop("mirage_sid", None)
+            session.pop("attacker_profile", None)
+            session.pop("session_start_time", None)
+            session.pop("fake_user", None)
+            session.clear()
+            
+            # Create real admin session
+            _failed_logins[ip] = 0
+            session["admin"] = True
+            session["username"] = username
+            session['user'] = user_record['username']
+            session['role'] = user_record['role']
+            return redirect(url_for("real_dashboard"))
+
+        # 2. Check for SQL Injection patterns or if it's already an active attack session
         sql_patterns = [r"' OR 1=1", r"UNION SELECT", r"--", r"/\*", r"; DROP"]
         if any(re.search(p, username, re.IGNORECASE) for p in sql_patterns) or \
            any(re.search(p, password, re.IGNORECASE) for p in sql_patterns):
@@ -256,7 +279,7 @@ def login():
                 "confidence": 50
             }
             session['session_start_time'] = tmod.time()
-            log_and_emit(                      # ← was db.log_attack
+            log_and_emit(
                 ip=ip, path=request.path, method=request.method,
                 headers=dict(request.headers),
                 body=f"username={username}&password={password}",
@@ -269,13 +292,7 @@ def login():
             _failed_logins[ip] = 0
             return redirect(url_for("admin"))
 
-        user_record = real_db.verify_user(username, password)
-        if user_record:
-            _failed_logins[ip] = 0
-            session['user'] = user_record['username']
-            session['role'] = user_record['role']
-            return redirect(url_for("real_dashboard"))
-
+        # 3. Handle failed logins
         _failed_logins[ip] = _failed_logins.get(ip, 0) + 1
         attempts = _failed_logins[ip]
         log.warning(f"[LOGIN] Failed attempt {attempts}/{FAILED_LOGIN_LIMIT} from {ip} — user='{username}'")
@@ -295,7 +312,7 @@ def login():
                 "confidence": 50
             }
             session['session_start_time'] = tmod.time()
-            log_and_emit(                      # ← was db.log_attack
+            log_and_emit(
                 ip=ip, path=request.path, method=request.method,
                 headers=dict(request.headers),
                 body=f"username={username}&password={password}",
@@ -619,6 +636,25 @@ def catch_all(subpath):
                                server_ip="10.0.0." + str(random.randint(1, 50)),
                                mirage_sid=mirage_sid)
     return render_template("real_index.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    ip = request.remote_addr
+    _failed_logins[ip] = 0
+    if ip in _request_times:
+        _request_times[ip] = []
+    return redirect(url_for("login"))
+
+
+@app.after_request
+def add_header(response):
+    response.cache_control.no_store = True
+    response.cache_control.no_cache = True
+    response.cache_control.must_revalidate = True
+    response.cache_control.max_age = 0
+    return response
 
 
 # ══════════════════════════════════════════════════════════════════════════

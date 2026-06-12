@@ -23,6 +23,71 @@ app.config["SECRET_KEY"] = "mirage_live_2025"
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading", logger=False, engineio_logger=False)
 
+DANGEROUS_TOKENS = (
+    "rm -rf", "mkfs", ":(){", "chmod 777", "chattr -i", "dd if=", ">/dev/sd",
+    "wget ", "curl ", "nc ", "netcat", "bash -i", "/dev/tcp", "python -c",
+    "perl -e", "base64 -d", "sshpass", "iptables -F", "crontab", "passwd",
+    "shadow", "authorized_keys", "sudo ", "su -", "history -c"
+)
+
+
+def parse_ts(value):
+    """Parse Cowrie/ISO timestamps without changing their stored representation."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+
+def duration_seconds(start_time, end_time):
+    start = parse_ts(start_time)
+    end = parse_ts(end_time) or datetime.now(timezone.utc)
+    if not start:
+        return 0
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    return max(0, int(round((end - start).total_seconds())))
+
+
+def is_dangerous_command(command):
+    cmd = (command or "").lower()
+    return any(token in cmd for token in DANGEROUS_TOKENS)
+
+
+def add_replay_timing(commands):
+    previous_ts = None
+    for idx, cmd in enumerate(commands):
+        current_ts = parse_ts(cmd.get("timestamp"))
+        if idx == 0 or not current_ts or not previous_ts:
+            delay_ms = 0
+        else:
+            delay_ms = max(0, int(round((current_ts - previous_ts).total_seconds() * 1000)))
+        cmd["replay_delay_ms"] = delay_ms
+        cmd["is_dangerous"] = bool(cmd.get("is_dangerous")) or is_dangerous_command(cmd.get("command"))
+        if current_ts:
+            previous_ts = current_ts
+    return commands
+
+
+def enrich_session(row):
+    data = dict(row)
+    data["session_duration"] = data.get("session_duration") or duration_seconds(
+        data.get("start_time"), data.get("end_time")
+    )
+    data["classification"] = data.get("attacker_type", "Unknown")
+    data["threat_score"] = data.get("threat_score", data.get("risk_score", 0))
+    return data
+
 
 # ── Database ──────────────────────────────────────────────────────────────────
 def init_db():
@@ -40,14 +105,16 @@ def init_db():
         confidence   INTEGER DEFAULT 0,
         interest     TEXT DEFAULT 'None',
         threat_score INTEGER DEFAULT 0,
-        latest_command TEXT DEFAULT ''
+        latest_command TEXT DEFAULT '',
+        session_duration INTEGER DEFAULT 0
     )""")
     
     # Safe alter table for existing database compatibility
     for col, type_ in [("confidence", "INTEGER DEFAULT 0"), 
                        ("interest", "TEXT DEFAULT 'None'"), 
                        ("threat_score", "INTEGER DEFAULT 0"), 
-                       ("latest_command", "TEXT DEFAULT ''")]:
+                       ("latest_command", "TEXT DEFAULT ''"),
+                       ("session_duration", "INTEGER DEFAULT 0")]:
         try:
             c.execute(f"ALTER TABLE sessions ADD COLUMN {col} {type_}")
         except sqlite3.OperationalError:
@@ -61,8 +128,17 @@ def init_db():
         timestamp     TEXT,
         risk_score    INTEGER DEFAULT 50,
         attacker_type TEXT,
-        response_time REAL DEFAULT 0
+        response_time REAL DEFAULT 0,
+        command_order INTEGER DEFAULT 0,
+        is_dangerous  INTEGER DEFAULT 0
     )""")
+    for col, type_ in [("command_order", "INTEGER DEFAULT 0"),
+                       ("is_dangerous", "INTEGER DEFAULT 0")]:
+        try:
+            c.execute(f"ALTER TABLE commands ADD COLUMN {col} {type_}")
+        except sqlite3.OperationalError:
+            pass
+    c.execute("CREATE INDEX IF NOT EXISTS idx_commands_session_order ON commands(session_id, command_order, timestamp, id)")
     conn.commit()
     conn.close()
 
@@ -89,7 +165,20 @@ def list_sessions():
         "SELECT * FROM sessions ORDER BY start_time DESC"
     ).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([enrich_session(r) for r in rows])
+
+@app.route("/api/recent_sessions", methods=["GET"])
+def recent_sessions():
+    """Completed Cowrie sessions available for replay."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT * FROM sessions
+           WHERE status='ended'
+           ORDER BY COALESCE(end_time, start_time) DESC
+           LIMIT 25"""
+    ).fetchall()
+    conn.close()
+    return jsonify([enrich_session(r) for r in rows])
 
 @app.route("/api/live", methods=["GET"])
 def live_sessions():
@@ -98,7 +187,7 @@ def live_sessions():
         "SELECT * FROM sessions WHERE status='active' ORDER BY start_time DESC"
     ).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([enrich_session(r) for r in rows])
 
 @app.route("/api/session/<session_id>", methods=["GET"])
 def get_session(session_id):
@@ -110,12 +199,23 @@ def get_session(session_id):
         conn.close()
         return jsonify({"error": "Not found"}), 404
     cmds = conn.execute(
-        "SELECT * FROM commands WHERE session_id=? ORDER BY timestamp", (session_id,)
+        "SELECT * FROM commands WHERE session_id=? ORDER BY command_order, timestamp, id", (session_id,)
     ).fetchall()
     conn.close()
-    result = dict(sess)
-    result["commands"] = [dict(c) for c in cmds]
+    result = enrich_session(sess)
+    result["commands"] = add_replay_timing([dict(c) for c in cmds])
     return jsonify(result)
+
+@app.route("/api/replay/<session_id>", methods=["GET"])
+def replay_session(session_id):
+    data, status = get_session(session_id), 200
+    if data.status_code != 200:
+        return data
+    payload = data.get_json()
+    if payload.get("status") != "ended":
+        status = 409
+        payload["error"] = "Replay is available after the Cowrie session ends."
+    return jsonify(payload), status
 
 @app.route("/api/export/<session_id>", methods=["GET"])
 def export_session(session_id):
@@ -184,13 +284,13 @@ def ingest():
         conn.execute(
             """INSERT INTO sessions (session_id, src_ip, start_time, attacker_type, risk_score, status, command_count, confidence, interest, threat_score, latest_command)
                VALUES (?, ?, ?, ?, ?, 'active', 0, 50, 'Reconnaissance', ?, ?)""",
-            (session_id, src_ip, ts, attacker_type, risk_score, command)
+            (session_id, src_ip, ts, attacker_type, risk_score, risk_score, command)
         )
         conn.commit()
 
     # 2. Fetch all existing commands for classification
     cmds_rows = conn.execute(
-        "SELECT command, timestamp FROM commands WHERE session_id=? ORDER BY timestamp", 
+        "SELECT command, timestamp FROM commands WHERE session_id=? ORDER BY command_order, timestamp, id", 
         (session_id,)
     ).fetchall()
     cmds_list = [{"command": r["command"], "timestamp": r["timestamp"]} for r in cmds_rows]
@@ -216,10 +316,15 @@ def ingest():
 
     # 5. Record command to database
     if command:
+        next_order = conn.execute(
+            "SELECT COALESCE(MAX(command_order), 0) + 1 FROM commands WHERE session_id=?",
+            (session_id,)
+        ).fetchone()[0]
+        dangerous = 1 if is_dangerous_command(command) else 0
         conn.execute(
-            """INSERT INTO commands (session_id, command, response, timestamp, risk_score, attacker_type, response_time)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, command, response, ts, risk_score, attacker_type, response_time)
+            """INSERT INTO commands (session_id, command, response, timestamp, risk_score, attacker_type, response_time, command_order, is_dangerous)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, command, response, ts, risk_score, attacker_type, response_time, next_order, dangerous)
         )
         conn.commit()
 
@@ -275,12 +380,20 @@ def ingest():
             })
 
     if event_type == "session_end":
+        sess_row = conn.execute(
+            "SELECT start_time FROM sessions WHERE session_id=?", (session_id,)
+        ).fetchone()
+        session_duration = duration_seconds(sess_row["start_time"] if sess_row else ts, ts)
         conn.execute(
-            "UPDATE sessions SET status='ended', end_time=? WHERE session_id=?",
-            (ts, session_id)
+            "UPDATE sessions SET status='ended', end_time=?, session_duration=? WHERE session_id=?",
+            (ts, session_duration, session_id)
         )
         conn.commit()
-        socketio.emit("session_end", {"session_id": session_id, "timestamp": ts})
+        socketio.emit("session_end", {
+            "session_id": session_id,
+            "timestamp": ts,
+            "session_duration": session_duration
+        })
 
     conn.close()
     return jsonify({"status": "ok"})

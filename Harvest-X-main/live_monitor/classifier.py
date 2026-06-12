@@ -149,6 +149,10 @@ def classify_session(commands):
     """
     features = extract_features(commands)
     
+    # Direct override for downloads / bot indicators to prevent false negatives in RF model
+    if features[5] > 0:
+        return heuristic_classify(features)
+        
     # Try loading local ML model
     if os.path.exists(MODEL_PATH):
         try:

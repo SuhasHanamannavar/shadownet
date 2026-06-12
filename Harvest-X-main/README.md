@@ -1,6 +1,6 @@
 <div align="center">
-  <h1>🛡️ HarvestX</h1>
-  <h3>Adaptive AI Honeypot & Threat Intelligence Dashboard</h3>
+  <h1>🛡️ ShadowNet</h1>
+  <h3>Adaptive AI-powered Deception & Threat Intelligence Platform</h3>
   <p>An intelligent, ML-driven cybersecurity honeypot that deceives, detects, and classifies attackers in real-time.</p>
 </div>
 
@@ -29,9 +29,9 @@ Traditional honeypots and intrusion detection systems have several fundamental f
 
 ---
 
-## ✅ The HarvestX Solution
+## ✅ The ShadowNet Solution
 
-HarvestX solves these issues by acting as a highly adaptive, AI-powered deception system. 
+ShadowNet solves these issues by acting as a highly adaptive, AI-powered deception system. 
 
 - **AI-Based Attacker Classification:** Utilizes a Random Forest ML model to instantly classify attackers based on payload behavior.
 - **Adaptive System Personas:** Dynamically shifts its appearance (Linux terminal, Corporate Dashboard, etc.) to match what the attacker is probing for.
@@ -56,7 +56,7 @@ HarvestX solves these issues by acting as a highly adaptive, AI-powered deceptio
 ## 🧠 Core Architecture & Features
 
 ### 🖥 Frontend Interfaces (The Trap & The Monitor)
-HarvestX employs highly realistic UIs designed specifically to deceive attackers and empower defenders:
+ShadowNet employs highly realistic UIs designed specifically to deceive attackers and empower defenders:
 - **Fake Login Page:** Simulates an enterprise Single Sign-On (SSO) portal. 
 - **Admin Dashboard UI:** A fake corporate intranet that attackers "break into," complete with dummy user databases and settings.
 - **Honeypot Terminal Simulation:** A web-based shell that fakes a Linux environment, capturing commands while returning realistic errors.
@@ -84,7 +84,7 @@ The dashboard serves as the central nervous system for security analysts:
 - **Purpose:** To classify whether a session is benign, exploratory (Human), automated (Bot), or highly sophisticated (APT).
 
 ### 🔗 Smart Contract Integration (Concept)
-To ensure the absolute integrity of the gathered threat intelligence, HarvestX introduces a blockchain-based logging mechanism.
+To ensure the absolute integrity of the gathered threat intelligence, ShadowNet introduces a blockchain-based logging mechanism.
 - **Immutable Attack Logs:** Ensures that sophisticated attackers who might theoretically break out of the sandbox cannot delete their tracks.
 - **Tamper-Proof Storage:** Threat data is hashed and stored on a decentralized ledger.
 - **Core Functions:** 
@@ -109,7 +109,7 @@ To ensure the absolute integrity of the gathered threat intelligence, HarvestX i
 
 *(Placeholder for Screenshots)*
 - **Threat Intelligence Dashboard**
-- **HarvestX Enterprise Portal (Fake Login)**
+- **ShadowNet Enterprise Portal (Fake Login)**
 - **CorpNet Admin Dashboard (Trap Terminal)**
 
 ---
@@ -138,8 +138,8 @@ To ensure the absolute integrity of the gathered threat intelligence, HarvestX i
 
 **1. Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/harvestX.git
-cd harvestX
+git clone https://github.com/yourusername/shadownet.git
+cd shadownet
 ```
 
 **2. Install Python dependencies:**
@@ -180,4 +180,4 @@ docker-compose up -d --build
 
 ## 🌍 Impact
 
-HarvestX transforms passive defense into active engagement. By deceiving attackers, it wastes their time and resources while providing Blue Teams with **early detection**, **real-time visibility**, and **actionable threat intelligence** to fortify their actual networks.
+ShadowNet transforms passive defense into active engagement. By deceiving attackers, it wastes their time and resources while providing Blue Teams with **early detection**, **real-time visibility**, and **actionable threat intelligence** to fortify their actual networks.

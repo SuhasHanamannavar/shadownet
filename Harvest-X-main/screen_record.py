@@ -4,7 +4,7 @@ Screen record the live attack demo using mss + imageio → MP4
 import subprocess, time, os, shutil, tempfile
 
 FFMPEG = r"C:\Users\smgal\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe"
-OUTPUT = r"C:\Users\smgal\Documents\harvestX\live_attack_demo.mp4"
+OUTPUT = r"C:\Users\smgal\Documents\shadownet\live_attack_demo.mp4"
 FRAMES_DIR = tempfile.mkdtemp()
 DURATION = 55   # seconds to record
 FPS = 5

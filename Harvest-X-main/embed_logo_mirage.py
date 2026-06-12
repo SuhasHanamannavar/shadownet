@@ -1,9 +1,9 @@
 import base64
 
-with open(r'c:\Users\smgal\Documents\harvestX\mirage\dashboard\logo.png', 'rb') as f:
+with open(r'c:\Users\smgal\Documents\shadownet\mirage\dashboard\logo.png', 'rb') as f:
     b64 = base64.b64encode(f.read()).decode('utf-8')
 
-html_path = r'c:\Users\smgal\Documents\harvestX\mirage\dashboard\index.html'
+html_path = r'c:\Users\smgal\Documents\shadownet\mirage\dashboard\index.html'
 with open(html_path, 'r', encoding='utf-8') as f:
     html = f.read()
 
